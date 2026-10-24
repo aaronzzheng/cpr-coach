@@ -391,7 +391,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <h1>CPR COACH</h1>
+        <h1 className="brand">CPR Coach</h1>
         <StatusPills
           pills={[
             { label: "Backend", state: view?.backendUp ? "on" : "off" },
@@ -401,29 +401,61 @@ export default function App() {
           ]}
         />
         <div className="toggles">
-          <span className={metronomeOn ? "on" : ""}>♪ Metronome [B]</span>
-          <span className={muted ? "" : "on"}>🔊 Voice [M]</span>
+          <span className={metronomeOn ? "on" : ""}>
+            Metronome {metronomeOn ? "on" : "off"} <kbd>B</kbd>
+          </span>
+          <span className={muted ? "" : "on"}>
+            Voice {muted ? "off" : "on"} <kbd>M</kbd>
+          </span>
         </div>
-        {phase === "running" && live?.rate.source === "watch" && bs && (
-          <Timer seconds={bs.session.cycle_elapsed_s} label="cycle" />
-        )}
-        <Timer seconds={view?.elapsed ?? 0} />
+        <div className="clocks">
+          {phase === "running" && live?.rate.source === "watch" && bs && (
+            <Timer seconds={bs.session.cycle_elapsed_s} label="Rescuer" />
+          )}
+          <Timer seconds={view?.elapsed ?? 0} label="Session" />
+        </div>
       </header>
 
-      <section className="top">
+      <CoachBanner
+        rule={phase === "running" ? banner : null}
+        idleText={
+          phase === "countdown"
+            ? "Get ready"
+            : phase === "running"
+              ? "Keep going"
+              : phase === "calibrate"
+                ? "Calibrating"
+                : "Enter a name and press Start"
+        }
+      />
+
+      <main className="stage">
         <div className="camera-wrap">
           <CameraView ref={videoRef} canvasRef={canvasRef} status={view?.camStatus ?? "off"} error={view?.camError ?? null} />
           {phase === "countdown" && (
             <div className="countdown">
-              <span key={countdown}>{countdown > 0 ? countdown : "GO"}</span>
+              <span key={countdown}>{countdown > 0 ? countdown : "Go"}</span>
             </div>
           )}
           {phase === "running" && name && <div className="rescuer-tag">{name}</div>}
         </div>
         {showGauges && (
-          <div className="metrics">
-            <RateGauge cpm={live?.rate.cpm ?? null} source={live?.rate.source ?? null} />
-            <DepthBar cm={live?.depth.cm ?? null} estimate={live?.depth.estimate ?? false} source={live?.depth.source ?? null} />
+          <div className="side">
+            <div className="params">
+              <RateGauge cpm={live?.rate.cpm ?? null} source={live?.rate.source ?? null} />
+              <DepthBar cm={live?.depth.cm ?? null} estimate={live?.depth.estimate ?? false} source={live?.depth.source ?? null} />
+            </div>
+            <section className="trace" aria-label="Compression trace">
+              <Waveform
+                samples={view?.wave.samples ?? []}
+                ticks={view?.wave.ticks ?? []}
+                now={view?.wave.now ?? 0}
+                spanS={CAMERA_COMPRESSIONS.traceS}
+              />
+              <span className="trace-label">
+                {view?.wave.label ?? ""} · {live?.compressionCount ?? 0} compressions
+              </span>
+            </section>
           </div>
         )}
         {(phase === "home" || phase === "summary") && (
@@ -454,37 +486,15 @@ export default function App() {
             onCancel={cancelCalibration}
           />
         )}
-      </section>
-
-      <section className="wave-row">
-        <Waveform
-          samples={view?.wave.samples ?? []}
-          ticks={view?.wave.ticks ?? []}
-          now={view?.wave.now ?? 0}
-          spanS={CAMERA_COMPRESSIONS.traceS}
-        />
-        <span className="wave-label">
-          {view?.wave.label ?? ""} · {live?.compressionCount ?? 0} compressions
-        </span>
-      </section>
+      </main>
 
       {live && <PostureChecklist live={live} />}
 
-      <CoachBanner
-        rule={phase === "running" ? banner : null}
-        idleText={
-          phase === "countdown"
-            ? "Get ready…"
-            : phase === "running"
-              ? "Keep going"
-              : phase === "calibrate"
-                ? "Calibrating"
-                : "Enter a name and press START"
-        }
-      />
-
       <footer className="footer">
-        Training tool – not a medical device · Space start/stop · B metronome · S swap · M mute · C camera · W watch · D debug · F fullscreen
+        <span>Training tool, not a medical device.</span>
+        <span className="keys">
+          <kbd>Space</kbd> start/stop <kbd>S</kbd> swap <kbd>C</kbd> camera <kbd>W</kbd> watch <kbd>D</kbd> debug <kbd>F</kbd> fullscreen
+        </span>
       </footer>
 
       {phase === "summary" && (

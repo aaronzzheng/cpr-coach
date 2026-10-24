@@ -7,7 +7,8 @@ export function formatClock(s: number): string {
 export function Timer({ seconds, label }: { seconds: number; label?: string }) {
   return (
     <div className="timer">
-      {label && <span className="timer-label">{label}</span>}⏱ {formatClock(seconds)}
+      {label && <span className="timer-label">{label}</span>}
+      <span className="timer-value">{formatClock(seconds)}</span>
     </div>
   );
 }

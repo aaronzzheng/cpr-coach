@@ -59,7 +59,7 @@ export function SummaryCard({ summary: s, error, added, onAdd, onAgain }: Props)
                 value={pct(s.depth_pct)}
                 good={s.depth_pct === null ? null : s.depth_pct >= 0.8}
               />
-              <Stat label="Compression fraction" value={pct(s.ccf)} good={s.ccf === null ? null : s.ccf >= 0.8} />
+              <Stat label="Hands on chest" value={pct(s.ccf)} good={s.ccf === null ? null : s.ccf >= 0.8} />
               <Stat label="Elbows locked" value={pct(s.elbow_pct)} good={s.elbow_pct === null ? null : s.elbow_pct >= 0.8} />
               <Stat label="Shoulders over hands" value={pct(s.align_pct)} good={s.align_pct === null ? null : s.align_pct >= 0.8} />
               <Stat label="Avg rate" value={s.avg_rate_cpm === null ? "—" : `${Math.round(s.avg_rate_cpm)}/min`} />
