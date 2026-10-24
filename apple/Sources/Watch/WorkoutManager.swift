@@ -57,11 +57,16 @@ nonisolated final class WorkoutManager: NSObject, HKWorkoutSessionDelegate, HKLi
         date: Date
     ) {
         guard toState == .ended else { return }
+        // Finish the builder that belongs to *this* session. A new workout may already have
+        // started (Stop then Start quickly), and its session/builder must not be touched.
+        let endedBuilder = workoutSession.associatedWorkoutBuilder()
         Task { [self] in
-            try? await builder?.endCollection(at: date)
-            _ = try? await builder?.finishWorkout()
-            session = nil
-            builder = nil
+            try? await endedBuilder.endCollection(at: date)
+            _ = try? await endedBuilder.finishWorkout()
+            if session === workoutSession {
+                session = nil
+                builder = nil
+            }
         }
     }
 
