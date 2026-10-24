@@ -86,6 +86,10 @@ class WatchPipeline:
     def fatigue_state(self) -> FatigueState:
         return self.fatigue.state
 
+    def set_depth_scale(self, scale: float) -> None:
+        self.depth_scale = scale
+        self.detector.depth_scale = scale
+
     def swap(self) -> None:
         """Operator pressed swap: a new rescuer starts a fresh cycle at their first compression."""
         self.fatigue.reset_cycle(None, self.hr)

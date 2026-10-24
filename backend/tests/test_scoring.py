@@ -67,3 +67,20 @@ def test_pipeline_pause_detected_once() -> None:
     for b in bottoms:
         s.on_compression(b.t - bottoms[0].t + 0.5)
     assert s.pause_count == 1
+
+
+def test_watch_metrics_records_fatigue_and_depth_series() -> None:
+    s = Session()
+    s.start(100.0, "A")
+    for i in range(20):
+        t = 101.0 + i * 0.5
+        s.on_compression(t)
+        s.on_graded(t, 120.0, True, 5.5 - i * 0.05, True)
+    s.mark_fatigue(108.0)
+    s.mark_fatigue(109.0)  # only the first moment counts
+    s.stop(111.0)
+    m = s.watch_metrics(111.0)
+    assert m["fatigue_at_s"] == pytest.approx(7.0)
+    assert m["compressions"] == 20
+    assert m["depth_series"][0] == (0.0, 5.5)
+    assert m["avg_rate_cpm"] == 120.0

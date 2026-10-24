@@ -100,3 +100,73 @@ html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(-
 .fatigue-meter { display: inline-block; width: 120px; height: 14px; background: var(--panel-2); border-radius: 7px; overflow: hidden; }
 .fatigue-meter span { display: block; height: 100%; background: linear-gradient(90deg, var(--amber), var(--purple)); transition: width 0.3s; }
 .check.hr + .check.fatigue { margin-left: 0; }
+
+/* Buttons and panels */
+.btn { font: inherit; font-size: 22px; padding: 12px 28px; border-radius: 10px; border: 1px solid var(--panel-2); background: var(--panel-2); color: var(--text); cursor: pointer; }
+.btn:hover:not(:disabled) { border-color: var(--muted); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn.primary { background: var(--green); border-color: var(--green); color: #04150a; font-weight: 700; }
+.error { color: var(--red); font-size: 18px; margin: 8px 0; }
+
+.panel { background: var(--panel); border-radius: 12px; padding: 20px 24px; overflow: auto; min-height: 0; }
+.panel-title { margin: 18px 0 10px; font-size: 18px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.home-label { display: block; font-size: 28px; font-weight: 700; margin-bottom: 12px; }
+.home-name { width: 100%; font: inherit; font-size: 28px; padding: 12px 16px; border-radius: 10px; border: 2px solid var(--panel-2); background: var(--bg); color: var(--text); }
+.home-name:focus { outline: none; border-color: var(--green); }
+.home-actions { display: flex; gap: 12px; margin: 16px 0 8px; }
+.home-actions .primary { flex: 1; font-size: 28px; }
+.home-cal { font-size: 14px; color: var(--muted); }
+
+.board { list-style: none; margin: 0; padding: 0; }
+.board li { display: grid; grid-template-columns: 36px 1fr auto 64px; gap: 12px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--panel-2); font-size: 20px; }
+.board li.me { color: var(--green); }
+.board-rank { color: var(--muted); font-variant-numeric: tabular-nums; }
+.board-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board-score { font-weight: 700; font-variant-numeric: tabular-nums; }
+.board-score small { color: var(--muted); font-weight: 400; }
+.board-date { color: var(--muted); font-size: 14px; text-align: right; }
+.board-empty { color: var(--muted); font-size: 18px; }
+
+/* Calibration */
+.cal-steps { display: flex; gap: 8px; list-style: none; padding: 0; margin: 0 0 16px; font-size: 15px; }
+.cal-steps li { padding: 4px 12px; border-radius: 999px; background: var(--panel-2); color: var(--muted); }
+.cal-steps li.active { background: var(--blue); color: #04121a; font-weight: 700; }
+.cal-steps li.done { color: var(--green); }
+.cal-text { font-size: 22px; line-height: 1.4; }
+.cal-status { font-size: 22px; margin: 8px 0; }
+.cal-status.wait { color: var(--muted); }
+.cal-result { font-size: 22px; padding: 12px 16px; border-radius: 10px; background: var(--panel-2); margin: 10px 0; line-height: 1.5; }
+.cal-result.bad { border: 2px solid var(--red); }
+.cal-actions { display: flex; gap: 12px; margin-top: 18px; }
+
+.rescuer-tag { position: absolute; top: 12px; left: 12px; padding: 6px 14px; border-radius: 8px; background: rgba(0,0,0,0.6); font-size: 22px; font-weight: 700; }
+
+/* Summary */
+.overlay { position: fixed; inset: 0; background: rgba(5,8,12,0.85); display: grid; place-items: center; padding: 24px; z-index: 10; }
+.summary { width: min(1100px, 100%); max-height: 100%; overflow: auto; background: var(--panel); border-radius: 16px; padding: 28px 32px; }
+.summary-loading { font-size: 32px; color: var(--muted); text-align: center; padding: 60px; }
+.summary-head { display: flex; align-items: center; gap: 28px; margin-bottom: 20px; }
+.grade { width: 120px; height: 120px; border-radius: 24px; display: grid; place-items: center; font-size: 80px; font-weight: 800; background: var(--panel-2); }
+.grade-A { background: var(--green); color: #04150a; }
+.grade-B { background: #84cc16; color: #0d1604; }
+.grade-C { background: var(--amber); color: #1a1205; }
+.grade-D, .grade-F { background: var(--red); }
+.summary-score { font-size: 72px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.summary-score span { font-size: 28px; color: var(--muted); font-weight: 400; }
+.summary-name { font-size: 20px; color: var(--muted); margin-top: 6px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+.stat { background: var(--panel-2); border-radius: 10px; padding: 12px 16px; }
+.stat-value { font-size: 32px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.stat-label { font-size: 15px; color: var(--muted); }
+.stat.good .stat-value { color: var(--green); }
+.stat.bad .stat-value { color: var(--amber); }
+.summary-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 18px; }
+
+.depth-chart { width: 100%; height: auto; background: var(--bg); border-radius: 10px; }
+.chart-band { fill: rgba(34,197,94,0.18); }
+.chart-grid { stroke: var(--panel-2); stroke-width: 1; }
+.chart-axis { fill: var(--muted); font-size: 12px; }
+.chart-line { fill: none; stroke: var(--blue); stroke-width: 2; }
+.chart-fatigue { stroke: var(--purple); stroke-width: 2; stroke-dasharray: 6 5; }
+.chart-fatigue-label { fill: var(--purple); font-size: 13px; }
+.chart-empty { color: var(--muted); padding: 20px; text-align: center; }

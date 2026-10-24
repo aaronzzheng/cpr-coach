@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import statistics
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from .config import SESSION_CLOCK_GRACE_S, TARGETS
+from pydantic import BaseModel
+
+from .config import MIN_WATCH_COMPRESSIONS, SESSION_CLOCK_GRACE_S, TARGETS
 
 
 def grade_letter(score: float) -> str:
@@ -49,6 +52,32 @@ class Pauses:
 
 
 @dataclass
+class CompressionRecord:
+    t: float  # seconds since the session clock started
+    inst_rate_cpm: float | None
+    rate_ok: bool | None
+    depth_cm: float | None
+    depth_ok: bool | None
+
+
+class CameraMetrics(BaseModel):
+    """What the dashboard measured in-browser, posted after stop (PRD §6.3 summary route)."""
+
+    compressions: int = 0
+    rate_pct: float | None = None
+    depth_pct: float | None = None
+    ccf: float | None = None
+    elapsed_s: float | None = None
+    pauses: int = 0
+    longest_pause_s: float = 0.0
+    avg_rate_cpm: float | None = None
+    avg_depth_cm: float | None = None
+    elbow_pct: float | None = None
+    align_pct: float | None = None
+    depth_series: list[tuple[float, float]] = []
+
+
+@dataclass
 class Session:
     id: str = ""
     name: str = ""
@@ -60,7 +89,8 @@ class Session:
     pause_count: int = 0
     longest_pause: float = 0.0
     hands_off: float = 0.0
-    graded: list[tuple[bool, bool | None]] = field(default_factory=list)
+    records: list[CompressionRecord] = field(default_factory=list)
+    fatigue_at: float | None = None
 
     def start(self, now: float, name: str = "") -> None:
         self.__init__()
@@ -93,9 +123,25 @@ class Session:
             self.hands_off += gap
         self.last_compression = t
 
-    def on_graded(self, rate_ok: bool, depth_ok: bool | None) -> None:
-        if self.status == "running":
-            self.graded.append((rate_ok, depth_ok))
+    def on_graded(
+        self, t: float, inst_rate_cpm: float | None, rate_ok: bool, depth_cm: float | None, depth_ok: bool | None
+    ) -> None:
+        if self.status != "running" or self.clock_start is None:
+            return
+        self.records.append(
+            CompressionRecord(
+                t=t - self.clock_start,
+                inst_rate_cpm=inst_rate_cpm,
+                rate_ok=rate_ok if inst_rate_cpm is not None else None,
+                depth_cm=depth_cm,
+                depth_ok=depth_ok,
+            )
+        )
+
+    def mark_fatigue(self, now: float) -> None:
+        """Remember the first moment a swap was recommended, for the summary."""
+        if self.status == "running" and self.fatigue_at is None and self.clock_start is not None:
+            self.fatigue_at = now - self.clock_start
 
     def elapsed(self, now: float) -> float:
         end = self.stopped_at if self.stopped_at is not None else now
@@ -118,8 +164,60 @@ class Session:
         return p
 
     def rate_pct(self) -> float | None:
-        return sum(r for r, _ in self.graded) / len(self.graded) if self.graded else None
+        rs = [r.rate_ok for r in self.records if r.rate_ok is not None]
+        return sum(rs) / len(rs) if rs else None
 
     def depth_pct(self) -> float | None:
-        ds = [d for _, d in self.graded if d is not None]
+        ds = [r.depth_ok for r in self.records if r.depth_ok is not None]
         return sum(ds) / len(ds) if ds else None
+
+    def watch_metrics(self, now: float) -> dict:
+        """Backend (watch) portion of the summary, returned by /api/session/stop."""
+        p = self.pauses(now)
+        rates = [r.inst_rate_cpm for r in self.records if r.inst_rate_cpm is not None]
+        depths = [r.depth_cm for r in self.records if r.depth_cm is not None]
+        return {
+            "session_id": self.id,
+            "name": self.name,
+            "compressions": len(self.records),
+            "rate_pct": self.rate_pct(),
+            "depth_pct": self.depth_pct(),
+            "ccf": p.ccf,
+            "elapsed_s": self.elapsed(now),
+            "pauses": p.count,
+            "longest_pause_s": p.longest_s,
+            "avg_rate_cpm": statistics.median(rates) if rates else None,
+            "avg_depth_cm": statistics.median(depths) if depths else None,
+            "depth_series": [(round(r.t, 2), round(r.depth_cm, 2)) for r in self.records if r.depth_cm is not None],
+            "fatigue_at_s": self.fatigue_at,
+        }
+
+
+def build_summary(watch: dict, cam: CameraMetrics, date: str) -> dict:
+    """Merge watch and camera metrics into the final summary. The watch is preferred for
+    rate/depth/CCF when it saw enough compressions; posture always comes from the camera."""
+    use_watch = watch["compressions"] >= MIN_WATCH_COMPRESSIONS
+    src = watch if use_watch else cam.model_dump()
+    score = compute_score(src["rate_pct"], src["depth_pct"], src["ccf"], cam.elbow_pct, cam.align_pct)
+    return {
+        "session_id": watch["session_id"],
+        "name": watch["name"] or "Anonymous",
+        "date": date,
+        "source": "watch" if use_watch else "camera",
+        "score": round(score, 1),
+        "grade": grade_letter(score),
+        "compressions": src["compressions"],
+        "elapsed_s": src["elapsed_s"],
+        "rate_pct": src["rate_pct"],
+        "depth_pct": src["depth_pct"],
+        "depth_estimated": not use_watch,
+        "ccf": src["ccf"],
+        "pauses": src["pauses"],
+        "longest_pause_s": src["longest_pause_s"],
+        "avg_rate_cpm": src["avg_rate_cpm"],
+        "avg_depth_cm": src["avg_depth_cm"],
+        "elbow_pct": cam.elbow_pct,
+        "align_pct": cam.align_pct,
+        "depth_series": src["depth_series"],
+        "fatigue_at_s": watch["fatigue_at_s"] if use_watch else None,
+    }

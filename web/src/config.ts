@@ -99,3 +99,16 @@ export const BACKEND = {
   stateStaleS: 1.0,
   hrStaleS: 15,
 } as const;
+
+export const SESSION = {
+  /** The session clock starts at the first compression, or this long after "go". */
+  clockGraceS: 5,
+  /** Posture percentages need at least this many visible ticks to be reported. */
+  minPostureTicks: 10,
+} as const;
+
+export const CALIBRATION = {
+  targetCm: 5.0,
+  compressions: 10,
+  depthScaleRange: [0.5, 2.0] as const,
+} as const;

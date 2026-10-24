@@ -51,3 +51,7 @@ BROADCAST_HZ = 20.0
 WAVE_S = 6.0
 WAVE_FS = 50.0
 SOURCE_STALE_S = 1.0
+# The summary uses watch metrics only if the watch saw at least this many compressions.
+MIN_WATCH_COMPRESSIONS = 10
+LEADERBOARD_SIZE = 10
+DEPTH_SCALE_RANGE = (0.5, 2.0)

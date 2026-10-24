@@ -2,7 +2,7 @@
 // compression detector, plus the skeleton overlay. Exposes a CameraSnapshot for fusion.
 import { POSE, TARGETS } from "../config";
 import type { CameraSnapshot } from "../fusion/fuse";
-import { CameraCompressionDetector } from "./cameraCompressions";
+import { CameraCompressionDetector, type CameraCompression } from "./cameraCompressions";
 import { createPoseLandmarker, PoseLandmarker } from "./poseLandmarker";
 import { PostureTracker, type Landmark, type PostureFrame } from "./postureMetrics";
 
@@ -16,6 +16,8 @@ export class CameraPipeline {
   status: CameraStatus = "off";
   error: string | null = null;
   poseFps = 0;
+  /** From the calibration wizard; null means "estimate from arm length". */
+  calibratedCmPerPx: number | null = null;
 
   readonly detector = new CameraCompressionDetector();
   private tracker = new PostureTracker();
@@ -24,6 +26,7 @@ export class CameraPipeline {
   private raf = 0;
   private lastVideoTime = -1;
   private frames: number[] = [];
+  private newCompressions: CameraCompression[] = [];
 
   constructor(
     private readonly video: HTMLVideoElement,
@@ -64,6 +67,14 @@ export class CameraPipeline {
 
   resetSession(): void {
     this.detector.reset();
+    this.newCompressions = [];
+  }
+
+  /** Camera compressions detected since the last call. */
+  drainCompressions(): CameraCompression[] {
+    const out = this.newCompressions;
+    this.newCompressions = [];
+    return out;
   }
 
   snapshot(): CameraSnapshot {
@@ -73,7 +84,7 @@ export class CameraPipeline {
       lastCompressionAgeS: c.lastT === null ? null : nowS() - c.lastT,
       posture: this.posture,
       compressions: c,
-      calibratedCmPerPx: null,
+      calibratedCmPerPx: this.calibratedCmPerPx,
     };
   }
 
@@ -93,7 +104,10 @@ export class CameraPipeline {
       const t = tMs / 1000;
 
       this.posture = this.tracker.update(lms, w, h, t);
-      if (this.posture.visible && this.posture.wrist) this.detector.push(t, this.posture.wrist.y, h);
+      if (this.posture.visible && this.posture.wrist) {
+        const c = this.detector.push(t, this.posture.wrist.y, h);
+        if (c) this.newCompressions.push(c);
+      }
 
       this.frames.push(t);
       while (this.frames.length && t - this.frames[0] > 1) this.frames.shift();

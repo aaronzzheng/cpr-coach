@@ -21,12 +21,18 @@ export class BackendSocket {
     const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
     const ws = new WebSocket(url);
     this.ws = ws;
+    // Handlers ignore sockets that have been replaced, so a late close from an old socket
+    // can't spawn a second live connection (which would deliver every event twice).
     ws.onopen = () => {
+      if (this.ws !== ws) return;
       this.connected = true;
       this.retry = 0;
     };
-    ws.onmessage = (e) => this.onMessage(JSON.parse(e.data as string) as ServerMsg);
+    ws.onmessage = (e) => {
+      if (this.ws === ws) this.onMessage(JSON.parse(e.data as string) as ServerMsg);
+    };
     ws.onclose = () => {
+      if (this.ws !== ws) return;
       this.connected = false;
       this.ws = null;
       if (this.closed) return;
@@ -38,7 +44,10 @@ export class BackendSocket {
   close(): void {
     this.closed = true;
     if (this.timer) clearTimeout(this.timer);
-    this.ws?.close();
+    const ws = this.ws;
+    this.ws = null;
+    this.connected = false;
+    ws?.close();
   }
 
   send(cmd: ClientCmd): void {

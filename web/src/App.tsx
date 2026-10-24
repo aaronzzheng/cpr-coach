@@ -1,25 +1,31 @@
-// Live dashboard: owns the camera pipeline, the fusion/coach tick loop, metronome, speech,
-// the idle → countdown → running flow, and the operator keyboard shortcuts.
+// Dashboard shell: owns the camera pipeline, backend socket, fusion/coach tick loop, metronome
+// and speech, and the home → calibrate / countdown → running → summary flow (PRD §8.1).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Metronome } from "./audio/metronome";
+import { computeCalibration, type CalibrationResult } from "./calibration/calibrate";
 import { CoachEngine } from "./coach/coachEngine";
 import type { Rule } from "./coach/rules";
 import { Speech } from "./coach/speech";
+import { CalibrationWizard, type CalibrationStep } from "./components/CalibrationWizard";
 import { CameraView } from "./components/CameraView";
 import { CoachBanner } from "./components/CoachBanner";
 import { DepthBar } from "./components/DepthBar";
+import { HomePanel } from "./components/HomePanel";
 import { PostureChecklist } from "./components/PostureChecklist";
 import { RateGauge } from "./components/RateGauge";
 import { StatusPills, type PillState } from "./components/StatusPills";
+import { SummaryCard } from "./components/SummaryCard";
 import { Timer } from "./components/Timer";
 import { Waveform, type WaveSample } from "./components/Waveform";
-import { CAMERA_COMPRESSIONS, COACH, COUNTDOWN_S, UI_TICK_MS } from "./config";
+import { CALIBRATION, CAMERA_COMPRESSIONS, COACH, COUNTDOWN_S, UI_TICK_MS } from "./config";
 import { cameraCmPerPx, fuse, type CameraSnapshot, type LiveState } from "./fusion/fuse";
+import { api, type Calibration, type LeaderboardEntry, type Summary } from "./net/api";
 import { BackendSocket } from "./net/backendSocket";
-import type { StateMsg } from "./net/messages";
+import type { CompressionMsg, StateMsg } from "./net/messages";
 import { CameraPipeline, type CameraStatus } from "./pose/cameraPipeline";
+import { SessionTracker } from "./session/sessionTracker";
 
-type Phase = "idle" | "countdown" | "running";
+type Phase = "home" | "calibrate" | "countdown" | "running" | "summary";
 
 interface View {
   now: number;
@@ -30,8 +36,27 @@ interface View {
   poseFps: number;
   backend: StateMsg | null;
   backendUp: boolean;
+  elapsed: number;
   wave: { samples: WaveSample[]; ticks: number[]; now: number; label: string };
 }
+
+interface CalState {
+  step: CalibrationStep;
+  using: { watch: boolean; camera: boolean };
+  counts: { watch: number; camera: number };
+  result: CalibrationResult | null;
+  saving: boolean;
+  error: string | null;
+}
+
+const CAL_INITIAL: CalState = {
+  step: "framing",
+  using: { watch: false, camera: false },
+  counts: { watch: 0, camera: 0 },
+  result: null,
+  saving: false,
+  error: null,
+};
 
 const nowS = () => performance.now() / 1000;
 
@@ -43,22 +68,50 @@ export default function App() {
   const speech = useRef<Speech | null>(null);
   const metronome = useRef(new Metronome());
   const backend = useRef(new BackendSocket());
+  const tracker = useRef<SessionTracker | null>(null);
 
   const [view, setView] = useState<View | null>(null);
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [phase, setPhase] = useState<Phase>("home");
   const [countdown, setCountdown] = useState(0);
   const [banner, setBanner] = useState<Rule | null>(null);
   const [muted, setMuted] = useState(false);
   const [metronomeOn, setMetronomeOn] = useState(true);
   const [debug, setDebug] = useState(false);
+  const [name, setName] = useState("");
+  const [board, setBoard] = useState<LeaderboardEntry[]>([]);
+  const [calibration, setCalibration] = useState<Calibration | null>(null);
+  const [cal, setCal] = useState<CalState>(CAL_INITIAL);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [added, setAdded] = useState(false);
+  const [homeError, setHomeError] = useState<string | null>(null);
 
-  const phaseRef = useRef<Phase>("idle");
+  const phaseRef = useRef<Phase>("home");
+  const calRef = useRef<CalState>(CAL_INITIAL);
   const runStart = useRef(0);
   const lastCoach = useRef(0);
+  const lastWatchEventT = useRef(0);
+  const sessionId = useRef<string | null>(null);
+  const calSamples = useRef<{ watch: number[]; camera: number[]; scale: number }>({ watch: [], camera: [], scale: 1 });
   const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   phaseRef.current = phase;
+  calRef.current = cal;
 
-  // Camera pipeline lives for the whole page; started automatically.
+  const refreshBoard = useCallback(() => {
+    api.leaderboard().then(setBoard, () => setBoard([]));
+  }, []);
+
+  const refreshCalibration = useCallback(() => {
+    api.calibration().then(
+      (c) => {
+        setCalibration(c);
+        if (pipeline.current) pipeline.current.calibratedCmPerPx = c.cm_per_px;
+      },
+      () => setCalibration(null),
+    );
+  }, []);
+
+  // Camera pipeline and backend socket live for the whole page.
   useEffect(() => {
     speech.current ??= new Speech();
     if (!videoRef.current || !canvasRef.current) return;
@@ -67,21 +120,61 @@ export default function App() {
     void p.start();
     const b = backend.current;
     b.connect();
+    refreshBoard();
+    refreshCalibration();
     return () => {
       p.stop();
       b.close();
     };
+  }, [refreshBoard, refreshCalibration]);
+
+  /** Watch compression events that arrived since the last call. */
+  const newWatchEvents = (b: BackendSocket): CompressionMsg[] => {
+    const fresh = b.events.filter((e) => e.t > lastWatchEventT.current);
+    if (fresh.length) lastWatchEventT.current = fresh[fresh.length - 1].t;
+    return fresh;
+  };
+
+  const finishCalibration = useCallback(() => {
+    metronome.current.stop();
+    const s = calSamples.current;
+    const result = computeCalibration(s.watch, s.camera);
+    setCal((c) => ({ ...c, step: "result", result }));
   }, []);
 
-  // UI tick: fuse sources, refresh the view, and run the coach every COACH.evalIntervalMs.
+  // UI tick: fuse sources, feed the session tracker or calibration, run the coach.
   useEffect(() => {
     const id = setInterval(() => {
       const p = pipeline.current;
       if (!p) return;
       const now = nowS();
-      const cam = p.snapshot();
       const b = backend.current;
+      const cam = p.snapshot();
       const live = fuse(b.watchSnapshot(), cam);
+      const camEvents = p.drainCompressions();
+      const watchEvents = newWatchEvents(b);
+      const ph = phaseRef.current;
+
+      if (ph === "running" && tracker.current) {
+        const tr = tracker.current;
+        const k = cameraCmPerPx(cam);
+        for (const c of camEvents) tr.onCameraCompression(c.t, c.instRateCpm, c.amplitudePx !== null && k ? c.amplitudePx * k : null);
+        const bNow = b.backendNow();
+        if (bNow !== null) for (const e of watchEvents) tr.onCompression(now - (bNow - e.t));
+        tr.onPosture(cam.posture);
+      }
+
+      const c = calRef.current;
+      if (ph === "calibrate" && c.step === "compress") {
+        const s = calSamples.current;
+        if (c.using.watch) for (const e of watchEvents) if (e.depth_cm !== null) s.watch.push(e.depth_cm / s.scale);
+        if (c.using.camera) for (const e of camEvents) if (e.amplitudePx !== null) s.camera.push(e.amplitudePx);
+        const counts = { watch: s.watch.length, camera: s.camera.length };
+        if (counts.watch !== c.counts.watch || counts.camera !== c.counts.camera) setCal((x) => ({ ...x, counts }));
+        const n = CALIBRATION.compressions;
+        if ((!c.using.watch || counts.watch >= n) && (!c.using.camera || counts.camera >= n)) finishCalibration();
+      }
+
       setView({
         now,
         live,
@@ -91,10 +184,11 @@ export default function App() {
         poseFps: p.poseFps,
         backend: b.state,
         backendUp: b.connected,
+        elapsed: ph === "running" && tracker.current ? tracker.current.elapsed(now) : 0,
         wave: waveFor(live, b, p),
       });
 
-      if (phaseRef.current === "running" && now - lastCoach.current >= COACH.evalIntervalMs / 1000) {
+      if (ph === "running" && now - lastCoach.current >= COACH.evalIntervalMs / 1000) {
         lastCoach.current = now;
         const d = engine.current.evaluate(live, now - runStart.current, now);
         setBanner(d.banner);
@@ -102,20 +196,14 @@ export default function App() {
       }
     }, UI_TICK_MS);
     return () => clearInterval(id);
-  }, []);
-
-  const stop = useCallback(() => {
-    if (countdownTimer.current) clearInterval(countdownTimer.current);
-    if (phaseRef.current === "running") backend.current.send({ cmd: "stop" });
-    metronome.current.stop();
-    setPhase("idle");
-    setBanner(null);
-  }, []);
+  }, [finishCalibration]);
 
   const start = useCallback(() => {
+    if (phaseRef.current !== "home") return;
     // Runs inside a user gesture, which unlocks audio and speech for the rest of the session.
     metronome.current.prime();
     speech.current?.say("Get ready.", 0);
+    setHomeError(null);
     setPhase("countdown");
     setCountdown(COUNTDOWN_S);
     let left = COUNTDOWN_S;
@@ -125,14 +213,96 @@ export default function App() {
       if (left > 0) return;
       if (countdownTimer.current) clearInterval(countdownTimer.current);
       runStart.current = nowS();
+      tracker.current = new SessionTracker(runStart.current);
       engine.current.reset();
       pipeline.current?.resetSession();
-      backend.current.send({ cmd: "start", name: "" });
+      sessionId.current = null;
+      api.startSession(name).then(
+        (r) => (sessionId.current = r.session_id),
+        (e: Error) => setHomeError(`Backend: ${e.message}`),
+      );
       if (metronomeOn) metronome.current.start();
       speech.current?.say("Start compressions.", 0);
       setPhase("running");
     }, 1000);
-  }, [metronomeOn]);
+  }, [metronomeOn, name]);
+
+  const stop = useCallback(() => {
+    if (countdownTimer.current) clearInterval(countdownTimer.current);
+    metronome.current.stop();
+    setBanner(null);
+    if (phaseRef.current === "countdown") {
+      setPhase("home");
+      return;
+    }
+    if (phaseRef.current !== "running") return;
+    const cam = tracker.current?.finish(nowS());
+    setSummary(null);
+    setSummaryError(null);
+    setAdded(false);
+    setPhase("summary");
+    speech.current?.say("Stop. Well done.", 0);
+    void (async () => {
+      try {
+        const { session_id } = await api.stopSession();
+        if (!cam) throw new Error("no session data");
+        setSummary(await api.postSummary(session_id, cam));
+      } catch (e) {
+        setSummaryError(e instanceof Error ? e.message : String(e));
+      }
+    })();
+  }, []);
+
+  const backHome = useCallback(() => {
+    setPhase("home");
+    setCal(CAL_INITIAL);
+    refreshBoard();
+  }, [refreshBoard]);
+
+  const addToLeaderboard = useCallback(() => {
+    if (!summary) return;
+    api.addToLeaderboard(summary.session_id).then(
+      (b) => {
+        setBoard(b);
+        setAdded(true);
+      },
+      (e: Error) => setSummaryError(e.message),
+    );
+  }, [summary]);
+
+  // Calibration wizard actions.
+  const beginCalibration = useCallback(() => {
+    const using = {
+      watch: backend.current.state?.sources.watch_streaming ?? false,
+      camera: (view?.cam.on ?? false) && (view?.cam.posture?.visible ?? false),
+    };
+    calSamples.current = { watch: [], camera: [], scale: calibration?.depth_scale ?? 1 };
+    metronome.current.start();
+    setCal({ ...CAL_INITIAL, step: "compress", using });
+  }, [view, calibration]);
+
+  const saveCalibration = useCallback(() => {
+    const r = cal.result;
+    if (!r) return;
+    setCal((c) => ({ ...c, saving: true, error: null }));
+    api
+      .saveCalibration({
+        depth_scale: r.depthScaleOk && r.depthScale !== null ? r.depthScale : undefined,
+        cm_per_px: r.cmPerPx ?? undefined,
+      })
+      .then(
+        () => {
+          refreshCalibration();
+          backHome();
+        },
+        (e: Error) => setCal((c) => ({ ...c, saving: false, error: e.message })),
+      );
+  }, [cal.result, refreshCalibration, backHome]);
+
+  const cancelCalibration = useCallback(() => {
+    metronome.current.stop();
+    backHome();
+  }, [backHome]);
 
   const toggleMetronome = useCallback(() => {
     setMetronomeOn((on) => {
@@ -163,7 +333,8 @@ export default function App() {
       switch (e.key.toLowerCase()) {
         case " ":
           e.preventDefault();
-          if (phaseRef.current === "idle") start();
+          if (phaseRef.current === "home") start();
+          else if (phaseRef.current === "summary") backHome();
           else stop();
           break;
         case "s":
@@ -189,14 +360,14 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [start, stop, toggleMute, toggleMetronome, toggleCamera]);
+  }, [start, stop, backHome, toggleMute, toggleMetronome, toggleCamera]);
 
   const camPill: PillState =
     view?.camStatus === "on" ? (view.cam.posture?.visible ? "on" : "warn") : view?.camStatus === "starting" ? "warn" : "off";
   const live = view?.live;
-  const elapsed = phase === "running" && view ? view.now - runStart.current : 0;
   const bs = view?.backend;
   const watchLabel = bs?.sources.source === "sim" ? "Watch (sim)" : bs?.sources.source === "replay" ? "Watch (replay)" : "Watch";
+  const showGauges = phase === "countdown" || phase === "running";
 
   return (
     <div className="app">
@@ -214,19 +385,52 @@ export default function App() {
           <span className={metronomeOn ? "on" : ""}>♪ Metronome [B]</span>
           <span className={muted ? "" : "on"}>🔊 Voice [M]</span>
         </div>
-        {live?.rate.source === "watch" && bs && <Timer seconds={bs.session.cycle_elapsed_s} label="cycle" />}
-        <Timer seconds={elapsed} />
+        {phase === "running" && live?.rate.source === "watch" && bs && (
+          <Timer seconds={bs.session.cycle_elapsed_s} label="cycle" />
+        )}
+        <Timer seconds={view?.elapsed ?? 0} />
       </header>
 
       <section className="top">
         <div className="camera-wrap">
           <CameraView ref={videoRef} canvasRef={canvasRef} status={view?.camStatus ?? "off"} error={view?.camError ?? null} />
           {phase === "countdown" && <div className="countdown">{countdown > 0 ? countdown : "GO"}</div>}
+          {phase === "running" && name && <div className="rescuer-tag">{name}</div>}
         </div>
-        <div className="metrics">
-          <RateGauge cpm={live?.rate.cpm ?? null} source={live?.rate.source ?? null} />
-          <DepthBar cm={live?.depth.cm ?? null} estimate={live?.depth.estimate ?? false} source={live?.depth.source ?? null} />
-        </div>
+        {showGauges && (
+          <div className="metrics">
+            <RateGauge cpm={live?.rate.cpm ?? null} source={live?.rate.source ?? null} />
+            <DepthBar cm={live?.depth.cm ?? null} estimate={live?.depth.estimate ?? false} source={live?.depth.source ?? null} />
+          </div>
+        )}
+        {(phase === "home" || phase === "summary") && (
+          <HomePanel
+            name={name}
+            onName={setName}
+            onStart={start}
+            onCalibrate={() => setPhase("calibrate")}
+            board={board}
+            calibration={calibration}
+            error={homeError}
+          />
+        )}
+        {phase === "calibrate" && (
+          <CalibrationWizard
+            step={cal.step}
+            cameraVisible={(view?.cam.on ?? false) && (view?.cam.posture?.visible ?? false)}
+            watchStreaming={bs?.sources.watch_streaming ?? false}
+            using={cal.using}
+            counts={cal.counts}
+            result={cal.result}
+            saving={cal.saving}
+            error={cal.error}
+            onBegin={beginCalibration}
+            onFinishNow={finishCalibration}
+            onSave={saveCalibration}
+            onRetry={beginCalibration}
+            onCancel={cancelCalibration}
+          />
+        )}
       </section>
 
       <section className="wave-row">
@@ -245,12 +449,24 @@ export default function App() {
 
       <CoachBanner
         rule={phase === "running" ? banner : null}
-        idleText={phase === "countdown" ? "Get ready…" : phase === "running" ? "Keep going" : "Press SPACE to start"}
+        idleText={
+          phase === "countdown"
+            ? "Get ready…"
+            : phase === "running"
+              ? "Keep going"
+              : phase === "calibrate"
+                ? "Calibrating"
+                : "Enter a name and press START"
+        }
       />
 
       <footer className="footer">
         Training tool – not a medical device · Space start/stop · B metronome · S swap · M mute · C camera · D debug · F fullscreen
       </footer>
+
+      {phase === "summary" && (
+        <SummaryCard summary={summary} error={summaryError} added={added} onAdd={addToLeaderboard} onAgain={backHome} />
+      )}
 
       {debug && view && (
         <pre className="debug">
@@ -266,7 +482,7 @@ export default function App() {
             `recoil (beta) ${view.cam.compressions.incompleteRecoil ? "INCOMPLETE" : "ok"}`,
             `last comp     ${view.cam.lastCompressionAgeS?.toFixed(1) ?? "—"} s ago`,
             ``,
-            `backend ws    ${view.backendUp ? "up" : "down"}  source=${bs?.sources.source ?? "—"}`,
+            `backend ws    ${view.backendUp ? "up" : "down"}  source=${bs?.sources.source ?? "—"}  session=${bs?.session.status ?? "—"}`,
             `packets       ${bs?.sources.packet_rate_hz.toFixed(1) ?? "—"}/s  gaps=${bs?.sources.gaps ?? "—"}  age=${bs?.sources.last_packet_age_ms ?? "—"} ms`,
             `watch rate    ${bs?.compressions.rate_cpm?.toFixed(1) ?? "—"}  depth5=${bs?.compressions.depth_avg5_cm?.toFixed(2) ?? "—"}`,
             `pauses        ${bs?.pauses.count ?? 0}  hands-off=${bs?.pauses.hands_off_s.toFixed(1) ?? "—"} s  ccf=${bs?.pauses.ccf?.toFixed(2) ?? "—"}`,

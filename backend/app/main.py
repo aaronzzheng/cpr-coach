@@ -9,25 +9,32 @@ import time
 from collections import deque
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import models as m
 from .broadcaster import Broadcaster
-from .config import SOURCE_STALE_S, TARGETS, WAVE_FS, WEB_DIST
+from .config import DATA_DIR, SOURCE_STALE_S, TARGETS, WAVE_FS, WEB_DIST
 from .dsp.compressions import Compression
 from .ingest import FRAME_IMU, decode_packet
 from .pipeline import WatchPipeline
-from .session import Session
+from .recorder import Recorder
+from .session import CameraMetrics, Session, build_summary
+from .store import Store
 
 log = logging.getLogger("cpr")
 
 STARTED_AT = time.time()
-pipeline = WatchPipeline()
+store = Store(DATA_DIR)
+pipeline = WatchPipeline(depth_scale=store.calibration()["depth_scale"])
 session = Session()
 broadcaster = Broadcaster()
+recorder = Recorder()
+# Watch half of the summary for the most recently stopped session, until the dashboard posts its half.
+pending_watch: dict[str, dict] = {}
 
 
 class Ingest:
@@ -152,27 +159,24 @@ class StartBody(BaseModel):
 
 
 async def start_session(name: str) -> dict:
-    session.start(time.time(), name)
+    now = time.time()
+    session.start(now, name.strip())
     pipeline.swap()
+    recorder.start(store.sessions_dir / session.id, {"session_id": session.id, "name": session.name, "t0": now})
     await ingest.send_cmd({"cmd": "start"})
     return {"session_id": session.id}
 
 
 async def stop_session() -> dict:
     now = time.time()
+    if session.status != "running":
+        raise HTTPException(409, "no session running")
     session.stop(now)
+    recorder.stop()
     await ingest.send_cmd({"cmd": "stop"})
-    p = session.pauses(now)
-    return {
-        "session_id": session.id,
-        "elapsed_s": session.elapsed(now),
-        "compressions": pipeline.detector.count,
-        "rate_pct": session.rate_pct(),
-        "depth_pct": session.depth_pct(),
-        "ccf": p.ccf,
-        "pauses": p.count,
-        "longest_pause_s": p.longest_s,
-    }
+    watch = session.watch_metrics(now)
+    pending_watch[session.id] = watch
+    return watch
 
 
 @app.post("/api/session/start")
@@ -183,6 +187,63 @@ async def api_start(body: StartBody) -> dict:
 @app.post("/api/session/stop")
 async def api_stop() -> dict:
     return await stop_session()
+
+
+@app.post("/api/session/{session_id}/summary")
+def api_post_summary(session_id: str, cam: CameraMetrics) -> dict:
+    watch = pending_watch.pop(session_id, None)
+    if watch is None:
+        raise HTTPException(404, "unknown or already summarized session")
+    summary = build_summary(watch, cam, datetime.now().isoformat(timespec="seconds"))
+    store.save_summary(summary)
+    session.status = "idle"
+    return summary
+
+
+@app.get("/api/session/{session_id}/summary")
+def api_get_summary(session_id: str) -> dict:
+    summary = store.summary(session_id)
+    if summary is None:
+        raise HTTPException(404, "no summary")
+    return summary
+
+
+class LeaderboardBody(BaseModel):
+    session_id: str
+    name: str | None = None
+
+
+@app.get("/api/leaderboard")
+def api_leaderboard() -> list[dict]:
+    return store.leaderboard()
+
+
+@app.post("/api/leaderboard")
+def api_add_leaderboard(body: LeaderboardBody) -> list[dict]:
+    summary = store.summary(body.session_id)
+    if summary is None:
+        raise HTTPException(404, "no summary for that session")
+    return store.add_to_leaderboard(summary, body.name)
+
+
+class CalibrationBody(BaseModel):
+    depth_scale: float | None = None
+    cm_per_px: float | None = None
+
+
+@app.get("/api/calibration")
+def api_get_calibration() -> dict:
+    return store.calibration()
+
+
+@app.post("/api/calibration")
+def api_set_calibration(body: CalibrationBody) -> dict:
+    try:
+        c = store.save_calibration(body.depth_scale, body.cm_per_px)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+    pipeline.set_depth_scale(c["depth_scale"])
+    return c
 
 
 @app.websocket("/ingest")
@@ -209,16 +270,21 @@ async def ingest_ws(ws: WebSocket) -> None:
                     continue
                 ingest.last_packet = now
                 ingest.packet_times.append(now)
+                recorder.imu(now, data[1:])
                 out = pipeline.process(pkt, now)
                 for c in out.bottoms:
                     session.on_compression(c.t)
                 for c in out.completed:
                     cm = compression_msg(c)
-                    if c.inst_rate_cpm is not None:
-                        session.on_graded(cm.rate_ok, cm.depth_ok)
+                    session.on_graded(c.t, c.inst_rate_cpm, cm.rate_ok, c.depth_cm, cm.depth_ok)
+                    recorder.compression(now, cm.model_dump())
                     await broadcaster.send(cm)
+                if pipeline.fatigue_state().swap_recommended and pipeline.last_ts is not None:
+                    # Packet time, not arrival time, so replays at other speeds place it correctly.
+                    session.mark_fatigue(pipeline.to_laptop(pipeline.last_ts))
             elif msg.get("text"):
                 j = json.loads(msg["text"])
+                recorder.text(now, j)
                 t = j.get("t")
                 if t == "hello":
                     ingest.device = j.get("device", "unknown")
@@ -245,7 +311,7 @@ async def dashboard_ws(ws: WebSocket) -> None:
             cmd = j.get("cmd")
             if cmd == "start":
                 await start_session(j.get("name", ""))
-            elif cmd == "stop":
+            elif cmd == "stop" and session.status == "running":
                 await stop_session()
             elif cmd == "swap":
                 pipeline.swap()

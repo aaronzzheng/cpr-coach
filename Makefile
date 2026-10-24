@@ -2,7 +2,7 @@
 PY := backend/.venv/bin/python
 SCENARIO ?= good
 
-.PHONY: setup dev backend web sim test lint build swift-check
+.PHONY: setup dev backend web sim replay test lint build swift-check
 
 setup:
 	cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
@@ -23,6 +23,11 @@ web:
 
 sim:
 	cd backend && .venv/bin/python -m tools.sim_watch --scenario $(SCENARIO)
+
+SPEED ?= 1
+replay:
+	@test -n "$(SESSION)" || (echo "usage: make replay SESSION=data/sessions/<id> [SPEED=2]"; exit 1)
+	cd backend && .venv/bin/python -m tools.replay "$(abspath $(SESSION))" --speed $(SPEED)
 
 test:
 	cd backend && .venv/bin/pytest -q
