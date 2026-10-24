@@ -90,7 +90,7 @@ struct CoachView: View {
                 MetricTile(label: "Depth", value: coach.live.depthCm, digits: 1, unit: "cm",
                            scale: (0, 8), target: (Targets.depthMin, Targets.depthMax),
                            outWords: ("Too shallow", "Too deep"),
-                           source: coach.live.depthCm == nil ? nil : (coach.live.depthEstimate ? "camera" : "watch"),
+                           source: coach.live.depthSource?.rawValue,
                            estimate: coach.live.depthEstimate)
             }
             .fixedSize(horizontal: false, vertical: true)
@@ -207,6 +207,9 @@ private struct RunningControls: View {
     var body: some View {
         @Bindable var coach = coach
         HStack(spacing: 10) {
+            if coach.mode == .emergency {
+                GlassButton(symbol: "phone.fill", on: true, label: "Call \(CoachModel.emergencyNumber)") { callEmergency() }
+            }
             GlassButton(symbol: "metronome.fill", on: coach.metronomeOn, label: "Metronome") { coach.metronomeOn.toggle() }
             GlassButton(symbol: coach.muted ? "speaker.slash.fill" : "speaker.wave.2.fill", on: !coach.muted, label: "Voice coach") {
                 coach.muted.toggle()
@@ -438,10 +441,26 @@ private struct Meter: View {
 
 private struct SetupCard: View {
     @Environment(CoachModel.self) private var coach
+    @State private var showEmergency = false
 
     var body: some View {
         @Bindable var coach = coach
         VStack(alignment: .leading, spacing: 14) {
+            Button { showEmergency = true } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "staroflife.fill").font(.title3)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Someone collapsed?").font(.headline)
+                        Text("Call for help and get coached through CPR").font(.footnote).opacity(0.85)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.subheadline.weight(.semibold)).opacity(0.7)
+                }
+                .foregroundStyle(.white)
+                .padding(14)
+                .background(Palette.urgent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .fullScreenCover(isPresented: $showEmergency) { EmergencySheet() }
             Text("Ready to practice").font(.system(size: 28, weight: .bold)).tracking(-0.6)
             Text("Prop the phone up beside you so the camera sees you from the side, arms down to the chest.")
                 .font(.subheadline).foregroundStyle(Palette.muted)
@@ -507,8 +526,12 @@ private struct SummarySheet: View {
     let summary: SessionSummary
 
     var body: some View {
+        if coach.mode == .emergency { EmergencySummary(summary: summary) } else { trainingSummary }
+    }
+
+    private var trainingSummary: some View {
         let s = summary
-        ZStack {
+        return ZStack {
             Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
@@ -540,6 +563,7 @@ private struct SummarySheet: View {
                         Stat(label: "Elbows locked", value: pct(s.elbowPct), good: s.elbowPct.map { $0 >= 0.8 })
                         Stat(label: "Shoulders over hands", value: pct(s.alignPct), good: s.alignPct.map { $0 >= 0.8 })
                     }
+                    DebriefCard(debrief: coach.debrief)
                     HStack(spacing: 12) {
                         Button { coach.backToSetup() } label: {
                             Text("Done").frame(maxWidth: .infinity, minHeight: 52)
@@ -573,6 +597,39 @@ private struct SummarySheet: View {
     private func pct(_ x: Double?) -> String { x.map { "\(Int(($0 * 100).rounded()))%" } ?? "—" }
 }
 
+private struct DebriefCard: View {
+    let debrief: Debrief?
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: debrief?.onDevice == true ? "sparkles" : "text.bubble.fill")
+                    .foregroundStyle(Palette.accent)
+                Text("Debrief").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.text)
+                Spacer()
+                if debrief?.onDevice == true {
+                    Text("On-device AI").font(.caption.weight(.medium)).foregroundStyle(Palette.faint)
+                }
+            }
+            if let debrief {
+                Text(debrief.text)
+                    .font(.body).foregroundStyle(Palette.text)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity)
+            } else {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Reviewing your session…").font(.subheadline).foregroundStyle(Palette.muted)
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.surface2, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .animation(.easeOut(duration: 0.25), value: debrief)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 private struct Stat: View {
     let label: String
     let value: String
@@ -590,6 +647,125 @@ private struct Stat: View {
             }
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: Emergency
+
+@MainActor
+func callEmergency() {
+    if let url = URL(string: "tel://\(CoachModel.emergencyNumber)") { UIApplication.shared.open(url) }
+}
+
+/// Two steps, in order: get help coming, then start compressions. No setup, no countdown.
+private struct EmergencySheet: View {
+    @Environment(CoachModel.self) private var coach
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack {
+            Palette.ink.ignoresSafeArea()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    HStack {
+                        Label("Emergency", systemImage: "staroflife.fill")
+                            .font(.system(size: 30, weight: .bold))
+                            .labelStyle(TintedIconLabel(tint: Palette.urgent))
+                        Spacer()
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark").font(.headline).foregroundStyle(Palette.muted)
+                                .frame(width: 36, height: 36).background(Palette.surface1, in: Circle())
+                        }
+                        .accessibilityLabel("Close")
+                    }
+                    EmergencyStep(number: 1, title: "Call \(CoachModel.emergencyNumber)",
+                                  detail: "Put the call on speaker. Say someone collapsed and isn't breathing normally. Send anyone nearby for an AED.") {
+                        Button { callEmergency() } label: {
+                            Label("Call \(CoachModel.emergencyNumber)", systemImage: "phone.fill")
+                                .font(.title3.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 58)
+                                .foregroundStyle(.white)
+                                .background(Palette.urgent, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        }
+                    }
+                    EmergencyStep(number: 2, title: "Start compressions",
+                                  detail: "Kneel beside them. Heel of one hand in the center of the chest, other hand on top, arms straight. Push hard and fast, about 5 cm, twice a second.") {
+                        Button {
+                            coach.startEmergency()
+                            dismiss()
+                        } label: {
+                            Label("Start compressions", systemImage: "hand.raised.fill")
+                                .font(.title3.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 58)
+                                .foregroundStyle(Palette.ink)
+                                .background(Palette.text, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        }
+                    }
+                    Text("Keep going until help or an AED arrives, or the person starts breathing normally. Follow the dispatcher's instructions. CPR Coach is a training tool, not a medical device.")
+                        .font(.footnote).foregroundStyle(Palette.faint)
+                }
+                .padding(20)
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
+private struct EmergencyStep<Action: View>: View {
+    let number: Int
+    let title: String
+    let detail: String
+    @ViewBuilder let action: Action
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text("\(number)")
+                    .font(.headline)
+                    .foregroundStyle(Palette.ink)
+                    .frame(width: 28, height: 28)
+                    .background(Palette.text, in: Circle())
+                Text(title).font(.system(size: 22, weight: .bold))
+            }
+            Text(detail).font(.body).foregroundStyle(Palette.muted)
+            action
+        }
+        .padding(18)
+        .background(Palette.surface1, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+}
+
+private struct EmergencySummary: View {
+    @Environment(CoachModel.self) private var coach
+    let summary: SessionSummary
+    var body: some View {
+        ZStack {
+            Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Compressions stopped").font(.system(size: 28, weight: .bold))
+                Text("\(summary.compressions) compressions over \(clock(summary.elapsed)). If help hasn't arrived and they aren't breathing normally, keep going.")
+                    .foregroundStyle(Palette.muted)
+                Button { coach.startEmergency() } label: {
+                    Label("Resume compressions", systemImage: "hand.raised.fill").font(.headline)
+                        .frame(maxWidth: .infinity, minHeight: 54).foregroundStyle(.white)
+                        .background(Palette.urgent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                HStack(spacing: 12) {
+                    Button { callEmergency() } label: {
+                        Label("Call \(CoachModel.emergencyNumber)", systemImage: "phone.fill").frame(maxWidth: .infinity, minHeight: 48)
+                            .background(Palette.surface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    Button { coach.backToSetup() } label: {
+                        Text("Done").frame(maxWidth: .infinity, minHeight: 48)
+                            .background(Palette.surface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                }
+                .font(.headline).foregroundStyle(Palette.text)
+            }
+            .padding(24)
+            .background(Palette.surface1, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .padding(16)
+            .frame(maxWidth: 560)
+        }
     }
 }
 

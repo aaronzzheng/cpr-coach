@@ -2,7 +2,7 @@
 PY := backend/.venv/bin/python
 SCENARIO ?= good
 
-.PHONY: setup dev demo backend web sim record replay test lint build swift-check apple-project apple-signing apple-install apple-install-phone
+.PHONY: setup dev demo backend web sim record replay validate validate-report test lint build swift-check apple-project apple-signing apple-install apple-install-phone
 
 setup:
 	cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
@@ -38,6 +38,14 @@ record:
 	cd backend && .venv/bin/python -m tools.record ../recordings/$(NAME).jsonl $(if $(SIM),--sim $(SIM) --duration $(DURATION),)
 
 SPEED ?= 1
+# Accuracy trials: make validate RATE=100   or   make validate DEPTH=5   (add SIM=1 to use the simulator)
+validate:
+	@test -n "$(RATE)$(DEPTH)" || (echo "usage: make validate RATE=100 | DEPTH=5 [SECONDS=30] [SIM=1]"; exit 1)
+	cd backend && .venv/bin/python -m tools.validate run $(if $(RATE),--rate $(RATE),) $(if $(DEPTH),--depth $(DEPTH),) --seconds $(or $(SECONDS),30) $(if $(SIM),--sim,)
+
+validate-report:
+	cd backend && .venv/bin/python -m tools.validate report
+
 replay:
 	@test -n "$(SESSION)" || (echo "usage: make replay SESSION=data/sessions/<id> [SPEED=2]"; exit 1)
 	cd backend && .venv/bin/python -m tools.replay "$(abspath $(SESSION))" --speed $(SPEED)

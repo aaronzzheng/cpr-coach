@@ -336,6 +336,8 @@ nonisolated struct WatchPipeline {
     private(set) var lastTs: Double?
     private var depths: [Double] = []
     var heartRate: Double?
+    /// The last batch's upward acceleration (m/s²) on the phone's clock, for depth fusion.
+    private(set) var lastSamples: [(t: Double, aUp: Double)] = []
 
     init(depthScale: Double = 1) {
         self.depthScale = depthScale
@@ -397,6 +399,7 @@ nonisolated struct WatchPipeline {
         }
         fatigue.update(now: last, hr: heartRate)
         let off = offset
+        lastSamples = zip(b.ts, aUp).map { ($0 + off, $1) }
         bottoms = bottoms.map { var c = $0; c.t += off; return c }
         done = done.map { var c = $0; c.t += off; return c }
         return (bottoms, done)

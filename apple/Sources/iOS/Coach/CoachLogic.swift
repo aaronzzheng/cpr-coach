@@ -157,6 +157,7 @@ nonisolated enum RateSource: String { case watch, camera }
 nonisolated struct WatchSnapshot {
     var rateCpm: Double?
     var depthCm: Double?
+    var depthFused = false
     var lastCompressionAge: Double?
     var count: Int
     var heartRate: Double?
@@ -171,6 +172,16 @@ nonisolated struct CameraSnapshot {
     var rateCpm: Double?
     var amplitudePx: Double?
     var count: Int
+    /// Camera scale learned from the watch by DepthFusion; makes camera depth metric.
+    var fusedCmPerPx: Double? = nil
+}
+
+/// Where the depth number comes from, best first.
+nonisolated enum DepthSource: String, Sendable {
+    case fused = "watch + camera"
+    case watch
+    case cameraCalibrated = "camera, calibrated"
+    case cameraEstimate = "camera"
 }
 
 nonisolated struct LiveState {
@@ -178,6 +189,7 @@ nonisolated struct LiveState {
     var rateSource: RateSource?
     var depthCm: Double?
     var depthEstimate = false
+    var depthSource: DepthSource?
     var lastCompressionAge: Double?
     var count = 0
     var postureAvailable = false
@@ -201,14 +213,22 @@ nonisolated func fuse(watch: WatchSnapshot?, camera cam: CameraSnapshot) -> Live
     if watchFresh, let w = watch {
         s.rateCpm = w.rateCpm; s.rateSource = .watch
         s.depthCm = w.depthCm
+        if w.depthCm != nil { s.depthSource = w.depthFused ? .fused : .watch }
         s.count = w.count
     } else if camFresh {
         s.rateCpm = cam.rateCpm; s.rateSource = .camera
         s.count = cam.count
     }
-    if s.depthCm == nil, camFresh, let amp = cam.amplitudePx, let k = cameraCmPerPx(cam) {
-        s.depthCm = amp * k
-        s.depthEstimate = true
+    if s.depthCm == nil, camFresh, let amp = cam.amplitudePx {
+        if let k = cam.fusedCmPerPx {
+            // The watch dropped out, but it already taught the camera its scale.
+            s.depthCm = amp * k
+            s.depthSource = .cameraCalibrated
+        } else if let k = cameraCmPerPx(cam) {
+            s.depthCm = amp * k
+            s.depthEstimate = true
+            s.depthSource = .cameraEstimate
+        }
     }
     s.lastCompressionAge = [watch?.lastCompressionAge, cam.on ? cam.lastCompressionAge : nil].compactMap { $0 }.min()
     if cam.on, let p = cam.posture, p.visible {

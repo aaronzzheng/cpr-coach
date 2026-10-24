@@ -9,6 +9,7 @@ final class CoachAudio {
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
     private var engineReady = false
+    private var metronomeBPM: Int?
     var muted = false {
         didSet { if muted { synth.stopSpeaking(at: .immediate) } }
     }
@@ -16,6 +17,15 @@ final class CoachAudio {
     init() {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
         try? AVAudioSession.sharedInstance().setActive(true)
+        // A phone call (e.g. to emergency services) interrupts our audio; restart the metronome after.
+        NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
+            let ended = (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt).flatMap(AVAudioSession.InterruptionType.init) == .ended
+            guard ended else { return }
+            MainActor.assumeIsolated {
+                try? AVAudioSession.sharedInstance().setActive(true)
+                if let self, let bpm = self.metronomeBPM { self.startMetronome(bpm: bpm) }
+            }
+        }
     }
 
     /// Lower priority number = more important; only a more important line interrupts.
@@ -34,6 +44,7 @@ final class CoachAudio {
 
     func startMetronome(bpm: Int) {
         stopMetronome()
+        metronomeBPM = bpm
         if !engineReady {
             engine.attach(player)
             engine.connect(player, to: engine.mainMixerNode, format: nil)
@@ -60,5 +71,6 @@ final class CoachAudio {
 
     func stopMetronome() {
         player.stop()
+        metronomeBPM = nil
     }
 }
