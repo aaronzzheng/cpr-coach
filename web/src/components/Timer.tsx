@@ -1,4 +1,4 @@
-// mm:ss session clock.
+// mm:ss clock with a small label.
 export function formatClock(s: number): string {
   const total = Math.max(0, Math.floor(s));
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;

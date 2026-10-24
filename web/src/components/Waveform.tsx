@@ -1,4 +1,4 @@
-// Monitor-style sweep: faint grid, the last few seconds of compression motion in trace green,
+// Live trace: recessive hairline grid, the last few seconds of compression motion in the accent,
 // and a tick per detected compression.
 import { useEffect, useRef } from "react";
 
@@ -28,20 +28,14 @@ export function Waveform({ samples, ticks, now, spanS }: { samples: WaveSample[]
     const traceColor = css.getPropertyValue("--trace").trim() || "#3ddc84";
     g.strokeStyle = gridColor;
     g.lineWidth = 1;
-    const cell = 24 * devicePixelRatio;
-    for (let gx = w % cell; gx < w; gx += cell) {
-      g.beginPath();
-      g.moveTo(gx, 0);
-      g.lineTo(gx, h);
-      g.stroke();
-    }
-    for (let gy = h % cell; gy < h; gy += cell) {
+    // Recessive grid: three solid horizontal hairlines.
+    for (let k = 1; k <= 3; k++) {
+      const gy = Math.round((h * k) / 4) + 0.5;
       g.beginPath();
       g.moveTo(0, gy);
       g.lineTo(w, gy);
       g.stroke();
     }
-
     if (samples.length < 2) return;
 
     const vs = samples.map((s) => s.v);
@@ -52,7 +46,7 @@ export function Waveform({ samples, ticks, now, spanS }: { samples: WaveSample[]
     const x = (t: number) => w - ((now - t) / spanS) * w;
     const y = (v: number) => pad + ((v - lo) / range) * (h - 2 * pad);
 
-    g.strokeStyle = "rgba(233,238,242,0.35)";
+    g.strokeStyle = "rgba(245,245,247,0.18)";
     g.lineWidth = 2 * devicePixelRatio;
     for (const t of ticks) {
       g.beginPath();
@@ -62,8 +56,9 @@ export function Waveform({ samples, ticks, now, spanS }: { samples: WaveSample[]
     }
 
     g.strokeStyle = traceColor;
-    g.lineWidth = 2.5 * devicePixelRatio;
+    g.lineWidth = 2 * devicePixelRatio;
     g.lineJoin = "round";
+    g.lineCap = "round";
     g.beginPath();
     samples.forEach((s, i) => (i ? g.lineTo(x(s.t), y(s.v)) : g.moveTo(x(s.t), y(s.v))));
     g.stroke();

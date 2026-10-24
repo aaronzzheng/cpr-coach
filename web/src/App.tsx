@@ -1,5 +1,6 @@
 // Dashboard shell: owns the camera pipeline, backend socket, fusion/coach tick loop, metronome
 // and speech, and the home → calibrate / countdown → running → summary flow (PRD §8.1).
+import { Heart, HeartPulse, Music, Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Metronome } from "./audio/metronome";
 import { computeCalibration, type CalibrationResult } from "./calibration/calibrate";
@@ -9,15 +10,14 @@ import { Speech } from "./coach/speech";
 import { CalibrationWizard, type CalibrationStep } from "./components/CalibrationWizard";
 import { CameraView } from "./components/CameraView";
 import { CoachBanner } from "./components/CoachBanner";
-import { DepthBar } from "./components/DepthBar";
 import { HomePanel } from "./components/HomePanel";
 import { PostureChecklist } from "./components/PostureChecklist";
-import { RateGauge } from "./components/RateGauge";
+import { MetricTile } from "./components/MetricTile";
 import { StatusPills, type PillState } from "./components/StatusPills";
 import { SummaryCard } from "./components/SummaryCard";
 import { Timer } from "./components/Timer";
 import { Waveform, type WaveSample } from "./components/Waveform";
-import { CALIBRATION, CAMERA_COMPRESSIONS, COACH, COUNTDOWN_S, UI_TICK_MS } from "./config";
+import { CALIBRATION, CAMERA_COMPRESSIONS, COACH, COUNTDOWN_S, TARGETS, UI_TICK_MS } from "./config";
 import { cameraCmPerPx, fuse, type CameraSnapshot, type LiveState } from "./fusion/fuse";
 import { api, type Calibration, type LeaderboardEntry, type Summary } from "./net/api";
 import { BackendSocket } from "./net/backendSocket";
@@ -391,24 +391,33 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <h1 className="brand">CPR Coach</h1>
+        <div className="brand">
+          <HeartPulse size={22} strokeWidth={2.25} aria-hidden="true" />
+          CPR Coach
+        </div>
         <StatusPills
           pills={[
-            { label: "Backend", state: view?.backendUp ? "on" : "off" },
-            { label: useWatch ? watchLabel : "Watch ignored [W]", state: !useWatch ? "off" : bs?.sources.watch_streaming ? "on" : "off" },
+            { label: useWatch ? watchLabel : "Watch ignored", state: !useWatch ? "off" : bs?.sources.watch_streaming ? "on" : "off" },
             { label: "Phone", state: bs?.sources.phone_connected ? "on" : "off" },
             { label: "Camera", state: camPill },
+            { label: "Server", state: view?.backendUp ? "on" : "off" },
           ]}
         />
-        <div className="toggles">
-          <span className={metronomeOn ? "on" : ""}>
-            Metronome {metronomeOn ? "on" : "off"} <kbd>B</kbd>
-          </span>
-          <span className={muted ? "" : "on"}>
-            Voice {muted ? "off" : "on"} <kbd>M</kbd>
-          </span>
-        </div>
-        <div className="clocks">
+        <div className="topbar-right">
+          {live?.hrBpm != null && (
+            <span className="hr" aria-label={`Heart rate ${live.hrBpm}`}>
+              <Heart size={18} fill="currentColor" aria-hidden="true" />
+              {live.hrBpm}
+            </span>
+          )}
+          <button className={`icon-btn ${metronomeOn ? "on" : ""}`} onClick={toggleMetronome} aria-pressed={metronomeOn} title="Metronome (B)">
+            <Music size={20} aria-hidden="true" />
+            <span className="sr-only">Metronome</span>
+          </button>
+          <button className={`icon-btn ${muted ? "" : "on"}`} onClick={toggleMute} aria-pressed={!muted} title="Voice coach (M)">
+            {muted ? <VolumeX size={20} aria-hidden="true" /> : <Volume2 size={20} aria-hidden="true" />}
+            <span className="sr-only">Voice coach</span>
+          </button>
           {phase === "running" && live?.rate.source === "watch" && bs && (
             <Timer seconds={bs.session.cycle_elapsed_s} label="Rescuer" />
           )}
@@ -416,18 +425,13 @@ export default function App() {
         </div>
       </header>
 
-      <CoachBanner
-        rule={phase === "running" ? banner : null}
-        idleText={
-          phase === "countdown"
-            ? "Get ready"
-            : phase === "running"
-              ? "Keep going"
-              : phase === "calibrate"
-                ? "Calibrating"
-                : "Enter a name and press Start"
-        }
-      />
+      {(phase === "countdown" || phase === "running") && (
+        <CoachBanner
+          rule={phase === "running" ? banner : null}
+          detail={phase === "running" ? instructionDetail(banner?.id ?? null, live) : null}
+          idleText={phase === "countdown" ? "Get ready" : "Keep going"}
+        />
+      )}
 
       <main className="stage">
         <div className="camera-wrap">
@@ -442,8 +446,26 @@ export default function App() {
         {showGauges && (
           <div className="side">
             <div className="params">
-              <RateGauge cpm={live?.rate.cpm ?? null} source={live?.rate.source ?? null} />
-              <DepthBar cm={live?.depth.cm ?? null} estimate={live?.depth.estimate ?? false} source={live?.depth.source ?? null} />
+              <MetricTile
+                label="Rate"
+                value={live?.rate.cpm ?? null}
+                unit="/min"
+                scale={[80, 140]}
+                target={[TARGETS.rate_min_cpm, TARGETS.rate_max_cpm]}
+                outWords={["Too slow", "Too fast"]}
+                source={live?.rate.source ?? null}
+              />
+              <MetricTile
+                label="Depth"
+                value={live?.depth.cm ?? null}
+                digits={1}
+                unit="cm"
+                scale={[0, 8]}
+                target={[TARGETS.depth_min_cm, TARGETS.depth_max_cm]}
+                outWords={["Too shallow", "Too deep"]}
+                source={live?.depth.source ?? null}
+                estimate={live?.depth.estimate ?? false}
+              />
             </div>
             <section className="trace" aria-label="Compression trace">
               <Waveform
@@ -452,9 +474,10 @@ export default function App() {
                 now={view?.wave.now ?? 0}
                 spanS={CAMERA_COMPRESSIONS.traceS}
               />
-              <span className="trace-label">
-                {view?.wave.label ?? ""} · {live?.compressionCount ?? 0} compressions
-              </span>
+              <header className="trace-head">
+                <h2 className="tile-label">Compressions</h2>
+                <span className="meta">{live?.compressionCount ?? 0} so far</span>
+              </header>
             </section>
           </div>
         )}
@@ -488,13 +511,11 @@ export default function App() {
         )}
       </main>
 
-      {live && <PostureChecklist live={live} />}
+      {live && (phase === "countdown" || phase === "running" || phase === "calibrate") && <PostureChecklist live={live} />}
 
       <footer className="footer">
         <span>Training tool, not a medical device.</span>
-        <span className="keys">
-          <kbd>Space</kbd> start/stop <kbd>S</kbd> swap <kbd>C</kbd> camera <kbd>W</kbd> watch <kbd>D</kbd> debug <kbd>F</kbd> fullscreen
-        </span>
+        <span>Space start or stop · S swap rescuer · W ignore watch · C camera · D details · F full screen</span>
       </footer>
 
       {phase === "summary" && (
@@ -546,4 +567,33 @@ function waveFor(live: LiveState, b: BackendSocket, p: CameraPipeline): View["wa
     now: nowS(),
     label: "wrist motion",
   };
+}
+
+/** One line of specifics under the instruction, from the live numbers. */
+function instructionDetail(ruleId: string | null, live: LiveState | undefined): string | null {
+  if (!live) return null;
+  const rate = live.rate.cpm === null ? null : Math.round(live.rate.cpm);
+  const depth = live.depth.cm === null ? null : `${live.depth.estimate ? "≈" : ""}${live.depth.cm.toFixed(1)} cm`;
+  switch (ruleId) {
+    case "too_shallow":
+    case "too_deep":
+      return depth !== null ? `Depth ${depth}. Aim for ${TARGETS.depth_min_cm}–${TARGETS.depth_max_cm} cm.` : null;
+    case "too_slow":
+    case "too_fast":
+      return rate !== null ? `${rate} per minute. Aim for ${TARGETS.rate_min_cpm}–${TARGETS.rate_max_cpm}, follow the beat.` : null;
+    case "elbows_bent":
+      return live.posture.elbowAngleDeg !== null ? `Elbows at ${Math.round(live.posture.elbowAngleDeg)}°. Straighten your arms.` : null;
+    case "not_over_hands":
+      return "Lean forward so your shoulders are directly above your hands.";
+    case "incomplete_recoil":
+      return "Lift your weight off the chest between compressions.";
+    case "swap":
+      return "Two minutes of compressions or depth is dropping. Hand over without pausing.";
+    case "no_compressions":
+      return "Every second without compressions counts.";
+    case "praise":
+      return rate !== null && depth !== null ? `${rate} per minute at ${depth}.` : null;
+    default:
+      return rate !== null ? `${rate} per minute${depth ? ` at ${depth}` : ""}.` : null;
+  }
 }

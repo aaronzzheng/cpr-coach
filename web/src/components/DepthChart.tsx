@@ -5,7 +5,7 @@ import { TARGETS } from "../config";
 const BREAK_S = TARGETS.pause_threshold_s;
 
 const W = 640;
-const H = 200;
+const H = 150;
 const PAD = { l: 36, r: 12, t: 12, b: 26 };
 const MAX_CM = 8;
 
@@ -45,6 +45,7 @@ export function DepthChart({ series, fatigueAt }: { series: [number, number][]; 
       {fatigueAt !== null && (
         <g>
           <line x1={x(fatigueAt)} x2={x(fatigueAt)} y1={PAD.t} y2={H - PAD.b} className="chart-fatigue" />
+          <circle cx={x(fatigueAt)} cy={PAD.t + 4} r={4} className="chart-fatigue-dot" />
           {/* Label on whichever side of the marker has room. */}
           <text
             x={x(fatigueAt) + (x(fatigueAt) > W * 0.7 ? -6 : 6)}
@@ -52,7 +53,7 @@ export function DepthChart({ series, fatigueAt }: { series: [number, number][]; 
             textAnchor={x(fatigueAt) > W * 0.7 ? "end" : "start"}
             className="chart-fatigue-label"
           >
-            fatigue detected
+            Fatigue detected
           </text>
         </g>
       )}

@@ -1,6 +1,6 @@
 // Camera pipeline: webcam → PoseLandmarker per animation frame → posture tracker and camera
 // compression detector, plus the skeleton overlay. Exposes a CameraSnapshot for fusion.
-import { POSE, TARGETS } from "../config";
+import { POSE } from "../config";
 import type { CameraSnapshot } from "../fusion/fuse";
 import { CameraCompressionDetector, type CameraCompression } from "./cameraCompressions";
 import { createPoseLandmarker, PoseLandmarker } from "./poseLandmarker";
@@ -142,8 +142,10 @@ export class CameraPipeline {
     g.clearRect(0, 0, w, h);
     if (!lms) return;
 
-    g.lineWidth = 3;
-    g.strokeStyle = "rgba(255,255,255,0.35)";
+    // Faint full skeleton for context; the tracked arm is the one mark that carries status.
+    g.lineWidth = 2;
+    g.lineCap = "round";
+    g.strokeStyle = "rgba(245,245,247,0.22)";
     for (const { start, end } of PoseLandmarker.POSE_CONNECTIONS) {
       const a = lms[start];
       const b = lms[end];
@@ -156,34 +158,48 @@ export class CameraPipeline {
 
     const p = this.posture;
     if (!p || !p.visible || !p.shoulder || !p.elbow || !p.wrist) return;
-    const color = p.elbowsLocked && p.aligned ? "#22c55e" : "#f59e0b";
-    g.lineWidth = 10;
-    g.lineCap = "round";
-    g.strokeStyle = color;
+    const ok = p.elbowsLocked && p.aligned;
+    const tone = ok ? "#30d158" : "#ff9f0a";
+
+    // Shoulders-over-hands reference: a solid hairline straight down from the shoulder.
+    g.lineWidth = 2;
+    g.strokeStyle = "rgba(245,245,247,0.35)";
+    g.beginPath();
+    g.moveTo(p.shoulder.x, p.shoulder.y);
+    g.lineTo(p.shoulder.x, p.wrist.y);
+    g.stroke();
+
+    g.lineWidth = 8;
+    g.lineJoin = "round";
+    g.strokeStyle = tone;
     g.beginPath();
     g.moveTo(p.shoulder.x, p.shoulder.y);
     g.lineTo(p.elbow.x, p.elbow.y);
     g.lineTo(p.wrist.x, p.wrist.y);
     g.stroke();
-
-    // Dashed vertical from the shoulder: the "shoulders over hands" reference line.
-    g.setLineDash([12, 10]);
-    g.lineWidth = 3;
-    g.strokeStyle = p.aligned ? "rgba(34,197,94,0.7)" : "rgba(245,158,11,0.9)";
-    g.beginPath();
-    g.moveTo(p.shoulder.x, p.shoulder.y);
-    g.lineTo(p.shoulder.x, p.wrist.y);
-    g.stroke();
-    g.setLineDash([]);
+    for (const pt of [p.shoulder, p.elbow, p.wrist]) {
+      g.beginPath();
+      g.arc(pt.x, pt.y, 9, 0, Math.PI * 2);
+      g.fillStyle = "#f5f5f7";
+      g.fill();
+      g.lineWidth = 3;
+      g.strokeStyle = "#000";
+      g.stroke();
+    }
 
     if (p.elbowAngleDeg !== null) {
+      // Label on a dark pill so it reads over any background; the text stays white.
       const label = `${Math.round(p.elbowAngleDeg)}°`;
-      g.font = "bold 40px system-ui, sans-serif";
-      g.lineWidth = 6;
-      g.strokeStyle = "rgba(0,0,0,0.7)";
-      g.strokeText(label, p.elbow.x + 18, p.elbow.y);
-      g.fillStyle = p.elbowAngleDeg >= TARGETS.elbow_locked_min_deg ? "#22c55e" : "#f59e0b";
-      g.fillText(label, p.elbow.x + 18, p.elbow.y);
+      g.font = "600 30px -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
+      const tw = g.measureText(label).width;
+      const x = p.elbow.x + 22;
+      const y = p.elbow.y - 22;
+      g.fillStyle = "rgba(0,0,0,0.6)";
+      g.beginPath();
+      g.roundRect(x, y, tw + 24, 44, 12);
+      g.fill();
+      g.fillStyle = "#f5f5f7";
+      g.fillText(label, x + 12, y + 32);
     }
   }
 }

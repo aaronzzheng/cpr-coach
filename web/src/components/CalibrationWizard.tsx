@@ -1,5 +1,6 @@
 // Calibration wizard (PRD §8.6): framing check, 10 ruler-verified 5 cm compressions,
 // then the computed watch depth scale and camera cm/px with an accuracy check.
+import { CircleCheck, LoaderCircle } from "lucide-react";
 import type { CalibrationResult } from "../calibration/calibrate";
 import { CALIBRATION } from "../config";
 
@@ -25,13 +26,19 @@ interface Props {
 const N = CALIBRATION.compressions;
 
 function Status({ ok, label }: { ok: boolean; label: string }) {
-  return <div className={`cal-status ${ok ? "ok" : "wait"}`}>{ok ? "✅" : "⏳"} {label}</div>;
+  const Icon = ok ? CircleCheck : LoaderCircle;
+  return (
+    <div className={`cal-status ${ok ? "ok" : "wait"}`}>
+      <Icon size={20} strokeWidth={2.25} aria-hidden="true" />
+      {label}
+    </div>
+  );
 }
 
 export function CalibrationWizard(p: Props) {
   return (
-    <div className="panel cal">
-      <h2 className="panel-title">Calibration</h2>
+    <div className="card cal">
+      <h2 className="title-lg">Calibrate depth</h2>
       <ol className="cal-steps">
         <li className={p.step === "framing" ? "active" : "done"}>Framing</li>
         <li className={p.step === "compress" ? "active" : p.step === "result" ? "done" : ""}>5 cm compressions</li>
@@ -44,10 +51,10 @@ export function CalibrationWizard(p: Props) {
           <Status ok={p.cameraVisible} label={p.cameraVisible ? "Arm visible" : "Shoulder, elbow and wrist not all visible yet"} />
           <Status ok={p.watchStreaming} label={p.watchStreaming ? "Watch streaming" : "Watch not streaming (camera only)"} />
           <div className="cal-actions">
-            <button className="btn primary" disabled={!p.cameraVisible && !p.watchStreaming} onClick={p.onBegin}>
+            <button className="btn primary lg" disabled={!p.cameraVisible && !p.watchStreaming} onClick={p.onBegin}>
               Next
             </button>
-            <button className="btn" onClick={p.onCancel}>
+            <button className="btn secondary lg" onClick={p.onCancel}>
               Cancel
             </button>
           </div>
@@ -63,10 +70,10 @@ export function CalibrationWizard(p: Props) {
           {p.using.watch && <Status ok={p.counts.watch >= N} label={`Watch ${Math.min(p.counts.watch, N)} / ${N}`} />}
           {p.using.camera && <Status ok={p.counts.camera >= N} label={`Camera ${Math.min(p.counts.camera, N)} / ${N}`} />}
           <div className="cal-actions">
-            <button className="btn" disabled={p.counts.watch < 3 && p.counts.camera < 3} onClick={p.onFinishNow}>
+            <button className="btn secondary lg" disabled={p.counts.watch < 3 && p.counts.camera < 3} onClick={p.onFinishNow}>
               Finish now
             </button>
-            <button className="btn" onClick={p.onCancel}>
+            <button className="btn secondary lg" onClick={p.onCancel}>
               Cancel
             </button>
           </div>
@@ -101,16 +108,16 @@ export function CalibrationWizard(p: Props) {
           {p.error && <div className="error">{p.error}</div>}
           <div className="cal-actions">
             <button
-              className="btn primary"
+              className="btn primary lg"
               disabled={p.saving || (!p.result.depthScaleOk && p.result.cmPerPx === null)}
               onClick={p.onSave}
             >
               {p.saving ? "Saving…" : "Save"}
             </button>
-            <button className="btn" onClick={p.onRetry}>
+            <button className="btn secondary lg" onClick={p.onRetry}>
               Try again
             </button>
-            <button className="btn" onClick={p.onCancel}>
+            <button className="btn secondary lg" onClick={p.onCancel}>
               Cancel
             </button>
           </div>

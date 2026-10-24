@@ -1,20 +1,16 @@
-// Header pills showing which data sources are connected.
+// Quiet source indicators in the header: a small dot + name, green only when live.
 export type PillState = "on" | "off" | "warn";
 
-interface Pill {
-  label: string;
-  state: PillState;
-}
-
-export function StatusPills({ pills }: { pills: Pill[] }) {
+export function StatusPills({ pills }: { pills: { label: string; state: PillState }[] }) {
   return (
-    <div className="pills">
+    <ul className="sources" aria-label="Connections">
       {pills.map((p) => (
-        <span key={p.label} className={`pill ${p.state}`}>
-          <span className="dot" />
+        <li key={p.label} className={`source ${p.state}`}>
+          <span className="source-dot" aria-hidden="true" />
           {p.label}
-        </span>
+          <span className="sr-only">{p.state === "on" ? " connected" : p.state === "warn" ? " partly connected" : " not connected"}</span>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
