@@ -37,6 +37,8 @@ export const POSE = {
   /** Typical adult shoulder-to-wrist length, used to guess cm/px before calibration. */
   armLengthCm: 55,
   armLengthSamples: 90,
+  /** Show the camera mirrored, like a mirror. Measurements are unaffected. */
+  mirror: true,
 } as const;
 
 export const CAMERA_COMPRESSIONS = {

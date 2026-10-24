@@ -132,6 +132,9 @@ export class CameraPipeline {
   }
 
   private draw(lms: Landmark[] | null, w: number, h: number): void {
+    // The video is shown mirrored (like a mirror, so moving left looks like moving left), so the
+    // overlay mirrors its x coordinates to match. Text is drawn normally so it stays readable.
+    const mx = (x: number) => (POSE.mirror ? w - x : x);
     const cv = this.canvas;
     if (cv.width !== w || cv.height !== h) {
       cv.width = w;
@@ -151,8 +154,8 @@ export class CameraPipeline {
       const b = lms[end];
       if ((a.visibility ?? 0) < 0.5 || (b.visibility ?? 0) < 0.5) continue;
       g.beginPath();
-      g.moveTo(a.x * w, a.y * h);
-      g.lineTo(b.x * w, b.y * h);
+      g.moveTo(mx(a.x * w), a.y * h);
+      g.lineTo(mx(b.x * w), b.y * h);
       g.stroke();
     }
 
@@ -165,21 +168,21 @@ export class CameraPipeline {
     g.lineWidth = 2;
     g.strokeStyle = "rgba(245,245,247,0.35)";
     g.beginPath();
-    g.moveTo(p.shoulder.x, p.shoulder.y);
-    g.lineTo(p.shoulder.x, p.wrist.y);
+    g.moveTo(mx(p.shoulder.x), p.shoulder.y);
+    g.lineTo(mx(p.shoulder.x), p.wrist.y);
     g.stroke();
 
     g.lineWidth = 8;
     g.lineJoin = "round";
     g.strokeStyle = tone;
     g.beginPath();
-    g.moveTo(p.shoulder.x, p.shoulder.y);
-    g.lineTo(p.elbow.x, p.elbow.y);
-    g.lineTo(p.wrist.x, p.wrist.y);
+    g.moveTo(mx(p.shoulder.x), p.shoulder.y);
+    g.lineTo(mx(p.elbow.x), p.elbow.y);
+    g.lineTo(mx(p.wrist.x), p.wrist.y);
     g.stroke();
     for (const pt of [p.shoulder, p.elbow, p.wrist]) {
       g.beginPath();
-      g.arc(pt.x, pt.y, 9, 0, Math.PI * 2);
+      g.arc(mx(pt.x), pt.y, 9, 0, Math.PI * 2);
       g.fillStyle = "#f5f5f7";
       g.fill();
       g.lineWidth = 3;
@@ -192,7 +195,7 @@ export class CameraPipeline {
       const label = `${Math.round(p.elbowAngleDeg)}°`;
       g.font = "600 30px -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
       const tw = g.measureText(label).width;
-      const x = p.elbow.x + 22;
+      const x = mx(p.elbow.x) + 22;
       const y = p.elbow.y - 22;
       g.fillStyle = "rgba(0,0,0,0.6)";
       g.beginPath();
