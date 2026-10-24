@@ -21,6 +21,8 @@ class Sources(BaseModel):
     packet_rate_hz: float
     gaps: int
     last_packet_age_ms: int | None
+    # As last reported by the iPhone relay (every 2 s); None until the first status message.
+    watch_reachable: bool | None = None
     source: Literal["watch", "sim", "replay", "none"]
 
 

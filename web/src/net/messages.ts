@@ -16,6 +16,7 @@ export interface StateMsg {
     packet_rate_hz: number;
     gaps: number;
     last_packet_age_ms: number | null;
+    watch_reachable: boolean | null;
     source: "watch" | "sim" | "replay" | "none";
   };
   hr: { bpm: number | null; age_s: number | null };

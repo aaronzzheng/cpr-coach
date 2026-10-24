@@ -88,6 +88,7 @@ def build_state() -> m.StateMsg:
             packet_rate_hz=ingest.packet_rate(now),
             gaps=pipeline.seq.gaps,
             last_packet_age_ms=None if ingest.last_packet is None else int((now - ingest.last_packet) * 1000),
+            watch_reachable=ingest.watch_reachable if ingest.ws is not None else None,
             source=source,  # type: ignore[arg-type]
         ),
         hr=m.Hr(
@@ -144,6 +145,7 @@ def health() -> dict:
         "sources": {
             "phone_connected": ingest.ws is not None and ingest.device == "iphone",
             "watch_streaming": ingest.streaming(now),
+            "watch_reachable": ingest.watch_reachable if ingest.ws is not None else None,
             "source": ingest.device if ingest.ws is not None else "none",
         },
     }

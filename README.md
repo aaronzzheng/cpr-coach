@@ -67,7 +67,7 @@ Calibration is stored in `data/calibration.json` and applies immediately.
 
 1. `make demo` serves everything from one process on port 8000: no auto-reload, built dashboard, works with no internet. Open http://localhost:8000 on the projector and press **F** for fullscreen. (Don't demo from `make dev`: it restarts the backend whenever a file changes, which ends the session in progress.)
 2. Camera on a stand **to the side**, rescuer's whole upper body in frame, good light.
-3. Watch: iPhone relay connected (*Socket: connected*), watch app **Start** pressed. The **Watch** and **Phone** pills are green.
+3. Watch: iPhone relay connected (*Socket: connected*) and **left open on screen**, watch app **Start** pressed. The **Watch** and **Phone** pills are green. On the watch, set Settings → General → **Return to Clock → CPR Coach → After 1 hour** and Display → **Wake Duration → 70 s**, so the app stays in front. When it isn't in front, the watch reports the phone unreachable and drops data.
 4. Run **Calibrate** with the ruler (about 60 s).
 5. Do one 20-second practice run and check the voice and metronome are audible.
 
@@ -105,7 +105,7 @@ Calibration is stored in `data/calibration.json` and applies immediately.
 | Dashboard says *Camera error: Permission denied* | Allow the camera for localhost in the browser's site settings, then reload. |
 | Camera pill is amber | The arm isn't visible enough. Use a side view, show shoulder to wrist, add light, wear contrasting sleeves. |
 | Compressions not counted from the camera | Press `D`: *cam amp px* should be well above the jitter. Move the camera closer or reframe. |
-| Watch pill off but phone connected | Open the watch app and press Start; keep the iPhone app in the foreground. |
+| Watch pill off but phone connected | Tap the watch so CPR Coach is showing, and press Start if it's stopped. Press `D`: if *watch reachable=false*, the watch app isn't in front (see the Return to Clock setting above) or the iPhone relay is in the background. |
 | Phone can't reach the laptop | Hackathon Wi-Fi blocks device-to-device traffic: use the iPhone Personal Hotspot (see `apple/SETUP.md`). |
 | Watch rate jumpy or misses compressions | Lower the peak threshold: `CPR_PEAK_PROMINENCE=2.0 make demo` (default 3.0 m/s²). |
 | Depth always too high/low | Re-run **Calibrate** with the ruler. |
