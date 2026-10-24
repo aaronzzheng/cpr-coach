@@ -173,7 +173,8 @@ async def stop_session() -> dict:
         raise HTTPException(409, "no session running")
     session.stop(now)
     recorder.stop()
-    await ingest.send_cmd({"cmd": "stop"})
+    # Deliberately no "stop" to the watch: it can only receive commands while its app is in the
+    # foreground, so a stopped watch would miss the next session's "start". Leave it streaming.
     watch = session.watch_metrics(now)
     pending_watch[session.id] = watch
     return watch
