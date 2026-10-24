@@ -17,6 +17,7 @@ const watch: WatchSnapshot = {
   count: 40,
   hrBpm: 100,
   swapRecommended: false,
+  fatigueScore: 0.1,
 };
 
 describe("fuse", () => {

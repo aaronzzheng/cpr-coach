@@ -67,7 +67,7 @@ html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(-
 .depth-fill { position: absolute; left: 10px; right: 10px; top: 0; background: var(--blue); border-radius: 0 0 6px 6px; transition: height 0.2s ease-out; }
 .depth-fill.good { background: var(--green); }
 .depth-fill.bad { background: var(--amber); }
-.depth-tick { position: absolute; left: 72px; transform: translateY(50%); font-size: 16px; color: var(--muted); }
+.depth-tick { position: absolute; left: 72px; transform: translateY(-50%); font-size: 16px; color: var(--muted); }
 .depth-value { font-size: 60px; font-weight: 800; font-variant-numeric: tabular-nums; margin-left: 32px; }
 .depth-value.good { color: var(--green); }
 .depth-value.bad { color: var(--amber); }
@@ -96,3 +96,7 @@ html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(-
 .footer { padding: 4px 28px; font-size: 14px; color: var(--muted); text-align: center; }
 
 .debug { position: fixed; right: 16px; bottom: 16px; margin: 0; padding: 12px 16px; background: rgba(0,0,0,0.85); border: 1px solid var(--panel-2); border-radius: 8px; font-size: 13px; line-height: 1.5; color: #a7f3d0; }
+
+.fatigue-meter { display: inline-block; width: 120px; height: 14px; background: var(--panel-2); border-radius: 7px; overflow: hidden; }
+.fatigue-meter span { display: block; height: 100%; background: linear-gradient(90deg, var(--amber), var(--purple)); transition: width 0.3s; }
+.check.hr + .check.fatigue { margin-left: 0; }

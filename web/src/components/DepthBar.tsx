@@ -1,4 +1,5 @@
-// Vertical depth bar (0–8 cm) with the AHA 5–6 cm band. Camera estimates are marked with "~".
+// Vertical depth bar (0–8 cm) that fills downward like the chest, with the AHA 5–6 cm band.
+// Camera estimates are marked with "~".
 import { TARGETS } from "../config";
 import type { Source } from "../fusion/fuse";
 
@@ -15,13 +16,13 @@ export function DepthBar({ cm, estimate, source }: { cm: number | null; estimate
         <div className="depth-bar">
           <div
             className="depth-band"
-            style={{ bottom: pct(TARGETS.depth_min_cm), height: `${((TARGETS.depth_max_cm - TARGETS.depth_min_cm) / MAX_CM) * 100}%` }}
+            style={{ top: pct(TARGETS.depth_min_cm), height: `${((TARGETS.depth_max_cm - TARGETS.depth_min_cm) / MAX_CM) * 100}%` }}
           />
           {cm !== null && <div className={`depth-fill ${cls}`} style={{ height: pct(cm) }} />}
-          <span className="depth-tick" style={{ bottom: pct(TARGETS.depth_max_cm) }}>
+          <span className="depth-tick" style={{ top: pct(TARGETS.depth_max_cm) }}>
             {TARGETS.depth_max_cm.toFixed(1)}
           </span>
-          <span className="depth-tick" style={{ bottom: pct(TARGETS.depth_min_cm) }}>
+          <span className="depth-tick" style={{ top: pct(TARGETS.depth_min_cm) }}>
             {TARGETS.depth_min_cm.toFixed(1)}
           </span>
         </div>

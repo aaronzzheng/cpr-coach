@@ -15,7 +15,8 @@ import { Timer } from "./components/Timer";
 import { Waveform, type WaveSample } from "./components/Waveform";
 import { CAMERA_COMPRESSIONS, COACH, COUNTDOWN_S, UI_TICK_MS } from "./config";
 import { cameraCmPerPx, fuse, type CameraSnapshot, type LiveState } from "./fusion/fuse";
-import { useHealth } from "./net/health";
+import { BackendSocket } from "./net/backendSocket";
+import type { StateMsg } from "./net/messages";
 import { CameraPipeline, type CameraStatus } from "./pose/cameraPipeline";
 
 type Phase = "idle" | "countdown" | "running";
@@ -27,20 +28,21 @@ interface View {
   camStatus: CameraStatus;
   camError: string | null;
   poseFps: number;
-  trace: WaveSample[];
-  ticks: number[];
+  backend: StateMsg | null;
+  backendUp: boolean;
+  wave: { samples: WaveSample[]; ticks: number[]; now: number; label: string };
 }
 
 const nowS = () => performance.now() / 1000;
 
 export default function App() {
-  const health = useHealth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pipeline = useRef<CameraPipeline | null>(null);
   const engine = useRef(new CoachEngine());
   const speech = useRef<Speech | null>(null);
   const metronome = useRef(new Metronome());
+  const backend = useRef(new BackendSocket());
 
   const [view, setView] = useState<View | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -63,7 +65,12 @@ export default function App() {
     const p = new CameraPipeline(videoRef.current, canvasRef.current);
     pipeline.current = p;
     void p.start();
-    return () => p.stop();
+    const b = backend.current;
+    b.connect();
+    return () => {
+      p.stop();
+      b.close();
+    };
   }, []);
 
   // UI tick: fuse sources, refresh the view, and run the coach every COACH.evalIntervalMs.
@@ -73,7 +80,8 @@ export default function App() {
       if (!p) return;
       const now = nowS();
       const cam = p.snapshot();
-      const live = fuse(null, cam);
+      const b = backend.current;
+      const live = fuse(b.watchSnapshot(), cam);
       setView({
         now,
         live,
@@ -81,8 +89,9 @@ export default function App() {
         camStatus: p.status,
         camError: p.error,
         poseFps: p.poseFps,
-        trace: p.detector.trace.map((s) => ({ t: s.t, v: s.y })),
-        ticks: [...p.detector.ticks],
+        backend: b.state,
+        backendUp: b.connected,
+        wave: waveFor(live, b, p),
       });
 
       if (phaseRef.current === "running" && now - lastCoach.current >= COACH.evalIntervalMs / 1000) {
@@ -97,6 +106,7 @@ export default function App() {
 
   const stop = useCallback(() => {
     if (countdownTimer.current) clearInterval(countdownTimer.current);
+    if (phaseRef.current === "running") backend.current.send({ cmd: "stop" });
     metronome.current.stop();
     setPhase("idle");
     setBanner(null);
@@ -117,6 +127,7 @@ export default function App() {
       runStart.current = nowS();
       engine.current.reset();
       pipeline.current?.resetSession();
+      backend.current.send({ cmd: "start", name: "" });
       if (metronomeOn) metronome.current.start();
       speech.current?.say("Start compressions.", 0);
       setPhase("running");
@@ -127,6 +138,7 @@ export default function App() {
     setMetronomeOn((on) => {
       if (on) metronome.current.stop();
       else if (phaseRef.current === "running") metronome.current.start();
+      backend.current.send({ cmd: "metronome", on: !on, bpm: metronome.current.bpm });
       return !on;
     });
   }, []);
@@ -154,6 +166,9 @@ export default function App() {
           if (phaseRef.current === "idle") start();
           else stop();
           break;
+        case "s":
+          backend.current.send({ cmd: "swap" });
+          break;
         case "m":
           toggleMute();
           break;
@@ -180,6 +195,8 @@ export default function App() {
     view?.camStatus === "on" ? (view.cam.posture?.visible ? "on" : "warn") : view?.camStatus === "starting" ? "warn" : "off";
   const live = view?.live;
   const elapsed = phase === "running" && view ? view.now - runStart.current : 0;
+  const bs = view?.backend;
+  const watchLabel = bs?.sources.source === "sim" ? "Watch (sim)" : bs?.sources.source === "replay" ? "Watch (replay)" : "Watch";
 
   return (
     <div className="app">
@@ -187,9 +204,9 @@ export default function App() {
         <h1>CPR COACH</h1>
         <StatusPills
           pills={[
-            { label: "Backend", state: health.backend ? "on" : "off" },
-            { label: "Watch", state: health.watch_streaming ? "on" : "off" },
-            { label: "Phone", state: health.phone_connected ? "on" : "off" },
+            { label: "Backend", state: view?.backendUp ? "on" : "off" },
+            { label: watchLabel, state: bs?.sources.watch_streaming ? "on" : "off" },
+            { label: "Phone", state: bs?.sources.phone_connected ? "on" : "off" },
             { label: "Camera", state: camPill },
           ]}
         />
@@ -197,6 +214,7 @@ export default function App() {
           <span className={metronomeOn ? "on" : ""}>♪ Metronome [B]</span>
           <span className={muted ? "" : "on"}>🔊 Voice [M]</span>
         </div>
+        {live?.rate.source === "watch" && bs && <Timer seconds={bs.session.cycle_elapsed_s} label="cycle" />}
         <Timer seconds={elapsed} />
       </header>
 
@@ -212,8 +230,15 @@ export default function App() {
       </section>
 
       <section className="wave-row">
-        <Waveform samples={view?.trace ?? []} ticks={view?.ticks ?? []} now={view?.now ?? 0} spanS={CAMERA_COMPRESSIONS.traceS} />
-        <span className="wave-label">wrist motion · {live?.compressionCount ?? 0} compressions</span>
+        <Waveform
+          samples={view?.wave.samples ?? []}
+          ticks={view?.wave.ticks ?? []}
+          now={view?.wave.now ?? 0}
+          spanS={CAMERA_COMPRESSIONS.traceS}
+        />
+        <span className="wave-label">
+          {view?.wave.label ?? ""} · {live?.compressionCount ?? 0} compressions
+        </span>
       </section>
 
       {live && <PostureChecklist live={live} />}
@@ -224,7 +249,7 @@ export default function App() {
       />
 
       <footer className="footer">
-        Training tool – not a medical device · Space start/stop · B metronome · M mute · C camera · D debug · F fullscreen
+        Training tool – not a medical device · Space start/stop · B metronome · S swap · M mute · C camera · D debug · F fullscreen
       </footer>
 
       {debug && view && (
@@ -240,9 +265,36 @@ export default function App() {
             `cm/px         ${cameraCmPerPx(view.cam)?.toFixed(3) ?? "—"} (${view.cam.calibratedCmPerPx ? "calibrated" : "arm-length guess"})`,
             `recoil (beta) ${view.cam.compressions.incompleteRecoil ? "INCOMPLETE" : "ok"}`,
             `last comp     ${view.cam.lastCompressionAgeS?.toFixed(1) ?? "—"} s ago`,
+            ``,
+            `backend ws    ${view.backendUp ? "up" : "down"}  source=${bs?.sources.source ?? "—"}`,
+            `packets       ${bs?.sources.packet_rate_hz.toFixed(1) ?? "—"}/s  gaps=${bs?.sources.gaps ?? "—"}  age=${bs?.sources.last_packet_age_ms ?? "—"} ms`,
+            `watch rate    ${bs?.compressions.rate_cpm?.toFixed(1) ?? "—"}  depth5=${bs?.compressions.depth_avg5_cm?.toFixed(2) ?? "—"}`,
+            `pauses        ${bs?.pauses.count ?? 0}  hands-off=${bs?.pauses.hands_off_s.toFixed(1) ?? "—"} s  ccf=${bs?.pauses.ccf?.toFixed(2) ?? "—"}`,
+            `fatigue       ${bs?.fatigue.score.toFixed(2) ?? "—"}  base=${bs?.fatigue.baseline_depth_cm?.toFixed(2) ?? "—"}  recent=${bs?.fatigue.recent_depth_cm?.toFixed(2) ?? "—"}`,
           ].join("\n")}
         </pre>
       )}
     </div>
   );
+}
+
+/** Watch a_up when the watch is the active source, otherwise the camera wrist trace. */
+function waveFor(live: LiveState, b: BackendSocket, p: CameraPipeline): View["wave"] {
+  const s = b.state;
+  const now = b.backendNow();
+  if (live.rate.source === "watch" && s && now !== null) {
+    const { t0, fs, a_up } = s.wave;
+    return {
+      samples: a_up.map((v, i) => ({ t: t0 + i / fs, v })),
+      ticks: b.events.map((e) => e.t),
+      now,
+      label: "watch vertical accel",
+    };
+  }
+  return {
+    samples: p.detector.trace.map((x) => ({ t: x.t, v: x.y })),
+    ticks: [...p.detector.ticks],
+    now: nowS(),
+    label: "wrist motion",
+  };
 }

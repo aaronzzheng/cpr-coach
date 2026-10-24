@@ -18,8 +18,6 @@ export interface Targets {
 
 export const TARGETS: Targets = targetsJson;
 
-export const HEALTH_POLL_MS = 2000;
-
 export const POSE = {
   modelPath: "/models/pose_landmarker_full.task",
   wasmPath: "/wasm",
@@ -93,3 +91,11 @@ export const METRONOME = {
 
 export const COUNTDOWN_S = 3;
 export const UI_TICK_MS = 100;
+
+export const BACKEND = {
+  reconnectDelaysMs: [500, 1000, 2000, 4000],
+  maxEvents: 200,
+  /** Ignore backend state older than this (socket stalled). */
+  stateStaleS: 1.0,
+  hrStaleS: 15,
+} as const;

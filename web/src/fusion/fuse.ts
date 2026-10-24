@@ -13,6 +13,7 @@ export interface WatchSnapshot {
   count: number;
   hrBpm: number | null;
   swapRecommended: boolean;
+  fatigueScore: number;
 }
 
 export interface CameraSnapshot {
@@ -40,6 +41,8 @@ export interface LiveState {
   };
   hrBpm: number | null;
   swapRecommended: boolean;
+  /** 0–1, watch only. */
+  fatigueScore: number | null;
 }
 
 export function cameraCmPerPx(cam: CameraSnapshot): number | null {
@@ -97,5 +100,6 @@ export function fuse(watch: WatchSnapshot | null, cam: CameraSnapshot): LiveStat
     },
     hrBpm: watch?.hrBpm ?? null,
     swapRecommended: watch?.swapRecommended ?? false,
+    fatigueScore: watch?.fatigueScore ?? null,
   };
 }

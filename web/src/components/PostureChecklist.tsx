@@ -22,6 +22,12 @@ export function PostureChecklist({ live }: { live: LiveState }) {
       <Item label="Shoulders over hands" status={s(p.alignViolation)} />
       <Item label="Full recoil" status={p.incompleteRecoil === null ? "na" : p.incompleteRecoil ? "warn" : "ok"} />
       <span className="check hr">❤️ {live.hrBpm === null ? "—" : `${live.hrBpm} bpm`}</span>
+      <span className={`check fatigue ${live.fatigueScore === null ? "na" : ""}`}>
+        Fatigue
+        <span className="fatigue-meter">
+          <span style={{ width: `${(live.fatigueScore ?? 0) * 100}%` }} />
+        </span>
+      </span>
     </div>
   );
 }

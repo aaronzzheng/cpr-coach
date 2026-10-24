@@ -19,6 +19,7 @@ function live(over: Partial<{ cpm: number | null; depth: number | null; age: num
     },
     hrBpm: null,
     swapRecommended: false,
+    fatigueScore: null,
   };
 }
 

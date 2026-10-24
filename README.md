@@ -26,9 +26,12 @@ Opens the dashboard at http://localhost:5173 (API on :8000, bound to 0.0.0.0 so 
 
 Camera-only mode (no Apple hardware): put the laptop so the webcam sees you **from the side**, kneeling at a cushion with your whole upper body in frame. Allow camera access, press **Space**, and do compressions. Depth shows as `~` because it's an estimate from your arm length until calibration (M4) exists.
 
-Keyboard: `Space` start/stop · `B` metronome · `M` mute voice · `C` camera on/off · `D` debug overlay · `F` fullscreen.
+Keyboard: `Space` start/stop · `S` swap rescuer · `B` metronome · `M` mute voice · `C` camera on/off · `D` debug overlay · `F` fullscreen.
 
-- Simulator: `make sim SCENARIO=shallow` *(M2)*
+- Simulator (no watch needed): with `make dev` running, in another terminal
+  `make sim SCENARIO=shallow`. Scenarios: `good`, `shallow`, `fast`, `slow`, `fatigue`, `chaotic`.
+  For live tweaking: `cd backend && .venv/bin/python -m tools.sim_watch --interactive`
+  (`+`/`-` rate, `[`/`]` depth, `p` pause, `q` quit). See `--help` for all flags.
 - Tests: `make test`
 - Production build: `make build`, then the backend serves `web/dist` at http://localhost:8000
 
