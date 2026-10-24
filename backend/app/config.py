@@ -59,3 +59,10 @@ CLOCK_JUMP_S = 5.0
 MIN_WATCH_COMPRESSIONS = 10
 LEADERBOARD_SIZE = 10
 DEPTH_SCALE_RANGE = (0.5, 2.0)
+
+# Depth targets by patient (AHA: about 5 cm adult and child, 4 cm infant); rate is the same.
+PATIENT_DEPTH_CM: dict[str, tuple[float, float]] = {
+    "adult": (TARGETS["depth_min_cm"], TARGETS["depth_max_cm"]),
+    "child": (4.5, 5.5),
+    "infant": (3.5, 4.5),
+}

@@ -72,7 +72,9 @@ def build_state() -> m.StateMsg:
     t0, wave = pipeline.wave_samples()
     source = "none"
     if ingest.streaming(now):
-        source = {"iphone": "watch", "sim": "sim", "replay": "replay"}.get(ingest.device, "watch")
+        source = {"iphone": "watch", "sim": "sim", "replay": "replay"}.get(
+            ingest.device, "watch"
+        )
     return m.StateMsg(
         ts=now,
         session=m.SessionInfo(
@@ -87,7 +89,9 @@ def build_state() -> m.StateMsg:
             watch_streaming=ingest.streaming(now),
             packet_rate_hz=ingest.packet_rate(now),
             gaps=pipeline.seq.gaps,
-            last_packet_age_ms=None if ingest.last_packet is None else int((now - ingest.last_packet) * 1000),
+            last_packet_age_ms=None
+            if ingest.last_packet is None
+            else int((now - ingest.last_packet) * 1000),
             watch_reachable=ingest.watch_reachable if ingest.ws is not None else None,
             source=source,  # type: ignore[arg-type]
         ),
@@ -114,8 +118,12 @@ def build_state() -> m.StateMsg:
 
 
 def compression_msg(c: Compression) -> m.CompressionMsg:
-    rate_ok = c.inst_rate_cpm is not None and TARGETS["rate_min_cpm"] <= c.inst_rate_cpm <= TARGETS["rate_max_cpm"]
-    depth_ok = None if c.depth_cm is None else TARGETS["depth_min_cm"] <= c.depth_cm <= TARGETS["depth_max_cm"]
+    rate_ok = (
+        c.inst_rate_cpm is not None
+        and TARGETS["rate_min_cpm"] <= c.inst_rate_cpm <= TARGETS["rate_max_cpm"]
+    )
+    lo, hi = session.depth_range
+    depth_ok = None if c.depth_cm is None else lo <= c.depth_cm <= hi
     return m.CompressionMsg(
         t=c.t,
         interval_s=c.interval_s,
@@ -145,7 +153,9 @@ def health() -> dict:
         "sources": {
             "phone_connected": ingest.ws is not None and ingest.device == "iphone",
             "watch_streaming": ingest.streaming(now),
-            "watch_reachable": ingest.watch_reachable if ingest.ws is not None else None,
+            "watch_reachable": ingest.watch_reachable
+            if ingest.ws is not None
+            else None,
             "source": ingest.device if ingest.ws is not None else "none",
         },
     }
@@ -158,13 +168,17 @@ def targets() -> dict:
 
 class StartBody(BaseModel):
     name: str = ""
+    patient: str = "adult"
 
 
-async def start_session(name: str) -> dict:
+async def start_session(name: str, patient: str = "adult") -> dict:
     now = time.time()
-    session.start(now, name.strip())
+    session.start(now, name.strip(), patient)
     pipeline.swap()
-    recorder.start(store.sessions_dir / session.id, {"session_id": session.id, "name": session.name, "t0": now})
+    recorder.start(
+        store.sessions_dir / session.id,
+        {"session_id": session.id, "name": session.name, "t0": now},
+    )
     await ingest.send_cmd({"cmd": "start"})
     return {"session_id": session.id}
 
@@ -184,7 +198,7 @@ async def stop_session() -> dict:
 
 @app.post("/api/session/start")
 async def api_start(body: StartBody) -> dict:
-    return await start_session(body.name)
+    return await start_session(body.name, body.patient)
 
 
 @app.post("/api/session/stop")
@@ -279,10 +293,15 @@ async def ingest_ws(ws: WebSocket) -> None:
                     session.on_compression(c.t)
                 for c in out.completed:
                     cm = compression_msg(c)
-                    session.on_graded(c.t, c.inst_rate_cpm, cm.rate_ok, c.depth_cm, cm.depth_ok)
+                    session.on_graded(
+                        c.t, c.inst_rate_cpm, cm.rate_ok, c.depth_cm, cm.depth_ok
+                    )
                     recorder.compression(now, cm.model_dump())
                     await broadcaster.send(cm)
-                if pipeline.fatigue_state().swap_recommended and pipeline.last_ts is not None:
+                if (
+                    pipeline.fatigue_state().swap_recommended
+                    and pipeline.last_ts is not None
+                ):
                     # Packet time, not arrival time, so replays at other speeds place it correctly.
                     session.mark_fatigue(pipeline.to_laptop(pipeline.last_ts))
             elif msg.get("text"):
@@ -316,13 +335,21 @@ async def dashboard_ws(ws: WebSocket) -> None:
             j = json.loads(await ws.receive_text())
             cmd = j.get("cmd")
             if cmd == "start":
-                await start_session(j.get("name", ""))
+                await start_session(j.get("name", ""), j.get("patient", "adult"))
             elif cmd == "stop" and session.status == "running":
                 await stop_session()
             elif cmd == "swap":
                 pipeline.swap()
+            elif cmd == "planned_pause":
+                session.planned_pause = True
             elif cmd == "metronome":
-                await ingest.send_cmd({"cmd": "metronome", "on": bool(j.get("on")), "bpm": int(j.get("bpm", 110))})
+                await ingest.send_cmd(
+                    {
+                        "cmd": "metronome",
+                        "on": bool(j.get("on")),
+                        "bpm": int(j.get("bpm", 110)),
+                    }
+                )
     except WebSocketDisconnect:
         pass
     finally:

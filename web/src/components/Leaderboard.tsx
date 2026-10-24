@@ -1,8 +1,9 @@
 // Top-10 list: rank, name, grade, score.
+import { t } from "../i18n";
 import type { LeaderboardEntry } from "../net/api";
 
 export function Leaderboard({ entries, highlight }: { entries: LeaderboardEntry[]; highlight?: string }) {
-  if (!entries.length) return <p className="empty">No scores yet. Finish a session and save it here.</p>;
+  if (!entries.length) return <p className="empty">{t("No scores yet. Finish a session and save it here.")}</p>;
   return (
     <ol className="board">
       {entries.map((e, i) => (

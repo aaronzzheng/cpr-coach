@@ -357,3 +357,34 @@ button, input { font: inherit; color: inherit; }
   .footer span:last-child { display: none; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Language menu, skills check, paramedic report, home options */
+.lang-menu { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 999px; background: var(--surface-2); color: var(--ink-1); }
+.lang-menu select { appearance: none; background: transparent; border: 0; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.lang-menu select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.skills { display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: var(--r-card); background: var(--surface-2); }
+.skills-head { display: flex; align-items: center; gap: 14px; }
+.skills.good .skills-head svg { color: var(--good); }
+.skills.critical .skills-head svg { color: var(--critical); }
+.skills-verdict { font-family: var(--font-display); font-size: 32px; font-weight: 700; letter-spacing: -0.5px; }
+.skills-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.skills-list li { display: flex; align-items: center; gap: 10px; }
+.skills-list li.ok svg { color: var(--good); }
+.skills-list li.bad svg { color: var(--critical); }
+.skills-list li.na svg { color: var(--ink-3); }
+.skills-value { margin-left: auto; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.handoff-body { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+.timeline { list-style: none; margin: 0; padding: 0; flex: 1 1 320px; }
+.timeline li { display: flex; gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--hairline); }
+.timeline-time { color: var(--ink-2); font-variant-numeric: tabular-nums; min-width: 92px; }
+.qr { border-radius: 12px; background: #fff; padding: 8px; }
+.options { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.segmented { display: inline-flex; padding: 3px; border-radius: 12px; background: var(--surface-2); }
+.segmented button { border: 0; background: transparent; color: var(--ink-2); font: inherit; font-weight: 600; padding: 7px 14px; border-radius: 9px; cursor: pointer; }
+.segmented button[aria-pressed="true"] { background: var(--surface-3); color: var(--ink-1); }
+.toggle-pill { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--surface-2); background: transparent; color: var(--ink-3); font: inherit; font-weight: 600; cursor: pointer; }
+.toggle-pill[aria-pressed="true"] { background: var(--surface-2); border-color: transparent; color: var(--ink-1); }
+.heard { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; background: var(--surface-1); color: var(--ink-2); font-weight: 600; }
+.heard.ok { color: var(--ink-1); }
+.heard svg { color: var(--accent); }
+.heard.ok svg { color: var(--good); }

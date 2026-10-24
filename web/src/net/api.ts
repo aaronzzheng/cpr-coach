@@ -51,7 +51,7 @@ async function call<T>(method: "GET" | "POST", path: string, body?: unknown): Pr
 }
 
 export const api = {
-  startSession: (name: string) => call<{ session_id: string }>("POST", "/api/session/start", { name }),
+  startSession: (name: string, patient = "adult") => call<{ session_id: string }>("POST", "/api/session/start", { name, patient }),
   stopSession: () => call<{ session_id: string }>("POST", "/api/session/stop"),
   postSummary: (id: string, cam: CameraMetrics) => call<Summary>("POST", `/api/session/${id}/summary`, cam),
   leaderboard: () => call<LeaderboardEntry[]>("GET", "/api/leaderboard"),

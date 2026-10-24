@@ -1,6 +1,6 @@
 // Dashboard shell: owns the camera pipeline, backend socket, fusion/coach tick loop, metronome
 // and speech, and the home → calibrate / countdown → running → summary flow (PRD §8.1).
-import { Heart, HeartPulse, Music, Volume2, VolumeX } from "lucide-react";
+import { Check, Heart, HeartPulse, Mic, Music, Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Metronome } from "./audio/metronome";
 import { computeCalibration, type CalibrationResult } from "./calibration/calibrate";
@@ -10,6 +10,8 @@ import { Speech } from "./coach/speech";
 import { CalibrationWizard, type CalibrationStep } from "./components/CalibrationWizard";
 import { CameraView } from "./components/CameraView";
 import { CoachBanner } from "./components/CoachBanner";
+import { HandoffSheet, type TimelineEvent } from "./components/HandoffSheet";
+import { LanguageMenu } from "./components/LanguageMenu";
 import { HomePanel } from "./components/HomePanel";
 import { PostureChecklist } from "./components/PostureChecklist";
 import { MetricTile } from "./components/MetricTile";
@@ -20,11 +22,15 @@ import { Waveform, type WaveSample } from "./components/Waveform";
 import { CALIBRATION, CAMERA_COMPRESSIONS, COACH, COUNTDOWN_S, TARGETS, UI_TICK_MS } from "./config";
 import { SwapForecaster } from "./fusion/forecast";
 import { cameraCmPerPx, fuse, type CameraSnapshot, type LiveState } from "./fusion/fuse";
+import { LANG_INFO, lang as currentLang, num, setLang, t, type Lang } from "./i18n";
 import { api, type Calibration, type LeaderboardEntry, type Summary } from "./net/api";
 import { BackendSocket } from "./net/backendSocket";
 import type { CompressionMsg, StateMsg } from "./net/messages";
 import { CameraPipeline, type CameraStatus } from "./pose/cameraPipeline";
+import { depthMax, depthMin, setPatient, type Patient } from "./patient";
 import { SessionTracker } from "./session/sessionTracker";
+import { SKILLS } from "./session/skills";
+import { matchCommand, VoiceListener, type VoiceCommand } from "./voice/commands";
 
 type Phase = "home" | "calibrate" | "countdown" | "running" | "summary";
 
@@ -61,6 +67,9 @@ const CAL_INITIAL: CalState = {
 
 const nowS = () => performance.now() / 1000;
 
+/** 30:2 mode: compressions per cycle, the longest breath pause, and how soon a compression ends it. */
+const BREATHS = { compressions: 30, maxPauseS: 10, resumeAfterS: 1.5 } as const;
+
 export default function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -71,6 +80,12 @@ export default function App() {
   const backend = useRef(new BackendSocket());
   const tracker = useRef<SessionTracker | null>(null);
   const forecaster = useRef(new SwapForecaster());
+  const listener = useRef<VoiceListener | null>(null);
+  const events = useRef<TimelineEvent[]>([]);
+  const swaps = useRef(0);
+  const cycleCount = useRef(0);
+  const breathSince = useRef<number | null>(null);
+  const skillsRef = useRef(false);
 
   const [view, setView] = useState<View | null>(null);
   const [phase, setPhase] = useState<Phase>("home");
@@ -88,6 +103,16 @@ export default function App() {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
   const [homeError, setHomeError] = useState<string | null>(null);
+  const [language, setLanguage] = useState<Lang>(currentLang());
+  const [patient, setPatientState] = useState<Patient>("adult");
+  const [breathsMode, setBreathsMode] = useState(false);
+  const [handsFree, setHandsFree] = useState(VoiceListener.supported);
+  const [skills, setSkills] = useState(false);
+  const [heard, setHeard] = useState<string | null>(null);
+  const [showHandoff, setShowHandoff] = useState(false);
+  const breathsRef = useRef(false);
+  breathsRef.current = breathsMode;
+  skillsRef.current = skills;
 
   const phaseRef = useRef<Phase>("home");
   const useWatchRef = useRef(true);
@@ -101,6 +126,12 @@ export default function App() {
   const calSamples = useRef<{ watch: number[]; camera: number[]; scale: number }>({ watch: [], camera: [], scale: 1 });
   const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   phaseRef.current = phase;
+  const viewRef = useRef<View | null>(null);
+  viewRef.current = view;
+  const bannerRef = useRef<Rule | null>(null);
+  bannerRef.current = banner;
+  const metronomeOnRef = useRef(true);
+  metronomeOnRef.current = metronomeOn;
   calRef.current = cal;
   useWatchRef.current = useWatch;
 
@@ -174,7 +205,23 @@ export default function App() {
         tr.onPosture(cam.posture);
         // Fatigue forecast on the watch's per-compression depths (backend clock).
         for (const e of watchEvents) if (e.depth_cm !== null) forecaster.current.push(e.t, e.depth_cm);
-        live.swapInS = bNow !== null && live.depth.source === "watch" ? forecaster.current.update(bNow, TARGETS.depth_min_cm) : null;
+        live.swapInS = bNow !== null && live.depth.source === "watch" ? forecaster.current.update(bNow, depthMin()) : null;
+
+        // 30:2: count compressions from whichever source leads; pause for breaths every 30.
+        const fresh = live.rate.source === "watch" && bNow !== null ? watchEvents.map((e) => now - (bNow - e.t)) : camEvents.map((c) => c.t);
+        for (const ct of fresh) {
+          const since = breathSince.current;
+          if (since !== null) {
+            if (ct - since < BREATHS.resumeAfterS) continue;
+            endBreaths(false); // compressions resumed on their own
+          }
+          cycleCount.current += 1;
+          if (breathsRef.current && cycleCount.current >= BREATHS.compressions) beginBreaths(now);
+        }
+        if (breathSince.current !== null && now - breathSince.current > BREATHS.maxPauseS) endBreaths(true);
+        live.breathPause = breathSince.current !== null;
+
+        if (skillsRef.current && tr.elapsed(now) >= SKILLS.durationS) stopRef.current();
       }
 
       const c = calRef.current;
@@ -205,17 +252,18 @@ export default function App() {
         lastCoach.current = now;
         const d = engine.current.evaluate(live, now - runStart.current, now);
         setBanner(d.banner);
-        if (d.speak) speech.current?.say(d.speak.line, d.speak.priority);
+        if (d.speak) speech.current?.say(t(d.speak.line), d.speak.priority);
       }
     }, UI_TICK_MS);
     return () => clearInterval(id);
   }, [finishCalibration]);
 
-  const start = useCallback(() => {
+  const start = useCallback((skillsCheck = false) => {
     if (phaseRef.current !== "home") return;
     // Runs inside a user gesture, which unlocks audio and speech for the rest of the session.
     metronome.current.prime();
-    speech.current?.say("Get ready.", 0);
+    setSkills(skillsCheck);
+    speech.current?.say(t("Get ready."), 0);
     setHomeError(null);
     setPhase("countdown");
     setCountdown(COUNTDOWN_S);
@@ -232,15 +280,19 @@ export default function App() {
       pipeline.current?.resetSession();
       sessionId.current = null;
       watchOverridden.current = !useWatchRef.current;
-      api.startSession(name).then(
+      events.current = [{ at: new Date(), label: t("Compressions started") }];
+      swaps.current = 0;
+      cycleCount.current = 0;
+      breathSince.current = null;
+      api.startSession(name, patient).then(
         (r) => (sessionId.current = r.session_id),
         (e: Error) => setHomeError(`Backend: ${e.message}`),
       );
       if (metronomeOn) metronome.current.start();
-      speech.current?.say("Start compressions.", 0);
+      speech.current?.say(t("Start compressions."), 0);
       setPhase("running");
     }, 1000);
-  }, [metronomeOn, name]);
+  }, [metronomeOn, name, patient]);
 
   const stop = useCallback(() => {
     if (countdownTimer.current) clearInterval(countdownTimer.current);
@@ -251,12 +303,14 @@ export default function App() {
       return;
     }
     if (phaseRef.current !== "running") return;
+    breathSince.current = null;
+    events.current.push({ at: new Date(), label: t("Compressions stopped") });
     const cam = tracker.current?.finish(nowS(), watchOverridden.current);
     setSummary(null);
     setSummaryError(null);
     setAdded(false);
     setPhase("summary");
-    speech.current?.say("Stop. Well done.", 0);
+    speech.current?.say(t("Stop. Well done."), 0);
     void (async () => {
       try {
         const { session_id } = await api.stopSession();
@@ -266,6 +320,35 @@ export default function App() {
         setSummaryError(e instanceof Error ? e.message : String(e));
       }
     })();
+  }, []);
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
+
+  // Rescue breaths (30:2): metronome off, a planned pause that doesn't count against hands-on time.
+  function beginBreaths(now: number) {
+    breathSince.current = now;
+    cycleCount.current = 0;
+    if (tracker.current) tracker.current.plannedPause = true;
+    backend.current.send({ cmd: "planned_pause" });
+    metronome.current.stop();
+    speech.current?.say(t("Give 2 breaths."), 0);
+    engine.current.markSpoken("breaths", now);
+  }
+
+  function endBreaths(prompt: boolean) {
+    if (breathSince.current === null) return;
+    breathSince.current = null;
+    if (metronomeOnRef.current && phaseRef.current === "running") metronome.current.start();
+    if (prompt) speech.current?.say(t("Resume compressions now."), 0);
+  }
+
+  const swapRescuers = useCallback(() => {
+    backend.current.send({ cmd: "swap" });
+    forecaster.current.reset();
+    if (phaseRef.current === "running") {
+      swaps.current += 1;
+      events.current.push({ at: new Date(), label: t("Rescuers switched") });
+    }
   }, []);
 
   const backHome = useCallback(() => {
@@ -360,8 +443,7 @@ export default function App() {
           else stop();
           break;
         case "s":
-          backend.current.send({ cmd: "swap" });
-          forecaster.current.reset();
+          swapRescuers();
           break;
         case "m":
           toggleMute();
@@ -386,13 +468,85 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [start, stop, backHome, toggleMute, toggleMetronome, toggleCamera, toggleWatch]);
+  }, [start, stop, backHome, toggleMute, toggleMetronome, toggleCamera, toggleWatch, swapRescuers]);
+
+  // Hands-free voice commands while running.
+  const showHeard = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onCommand = useCallback(
+    (cmd: VoiceCommand) => {
+      const label = { stop: "Stop", swap: "Swap", time: "How long", status: "How am I doing", done: "Done" }[cmd];
+      setHeard(t(label));
+      if (showHeard.current) clearTimeout(showHeard.current);
+      showHeard.current = setTimeout(() => setHeard(null), 2500);
+      const v = viewRef.current;
+      switch (cmd) {
+        case "stop":
+          stop();
+          break;
+        case "swap":
+          swapRescuers();
+          speech.current?.say(t("Switch now. Next rescuer, start compressions."), 0);
+          break;
+        case "time": {
+          const s = Math.floor(v?.elapsed ?? 0);
+          const n = v?.live.compressionCount ?? 0;
+          speech.current?.say(s >= 60 ? t("%@ minutes %@ seconds, %@ compressions.", Math.floor(s / 60), s % 60, n) : t("%@ seconds, %@ compressions.", s, n), 0);
+          break;
+        }
+        case "status": {
+          const l = v?.live;
+          const parts: string[] = [];
+          if (l?.rate.cpm != null) parts.push(t("Rate %@.", Math.round(l.rate.cpm)));
+          if (l?.depth.cm != null && l.depth.drivesCoach) parts.push(t("Depth %@ centimeters.", num(l.depth.cm, 1)));
+          if (!parts.length) parts.push(t("I can't see compressions yet. Push hard and fast."));
+          else parts.push(bannerRef.current && bannerRef.current.id !== "praise" ? t(bannerRef.current.line) : t("Looking good, keep going."));
+          speech.current?.say(parts.join(" "), 0);
+          break;
+        }
+        case "done":
+          endBreaths(true);
+          break;
+      }
+    },
+    [stop, swapRescuers],
+  );
+
+  useEffect(() => {
+    const want = phase === "running" && handsFree && VoiceListener.supported;
+    if (!want) {
+      listener.current?.stop();
+      return;
+    }
+    const l = new VoiceListener(
+      (text) => {
+        const cmd = matchCommand(text, language, breathSince.current !== null);
+        if (!cmd) return false;
+        onCommand(cmd);
+        return true;
+      },
+      () => speech.current?.echoWindow ?? false,
+    );
+    listener.current = l;
+    l.start(LANG_INFO[language].bcp47);
+    return () => l.stop();
+  }, [phase, handsFree, language, onCommand]);
+
+  const changeLanguage = useCallback((l: Lang) => {
+    setLang(l);
+    setLanguage(l);
+    speech.current?.pick();
+  }, []);
+
+  const changePatient = useCallback((p: Patient) => {
+    setPatient(p);
+    setPatientState(p);
+  }, []);
 
   const camPill: PillState =
     view?.camStatus === "on" ? (view.cam.posture?.visible ? "on" : "warn") : view?.camStatus === "starting" ? "warn" : "off";
   const live = view?.live;
   const bs = view?.backend;
-  const watchLabel = bs?.sources.source === "sim" ? "Watch (sim)" : bs?.sources.source === "replay" ? "Watch (replay)" : "Watch";
+  const watchLabel = bs?.sources.source === "sim" ? `${t("Watch")} (sim)` : bs?.sources.source === "replay" ? `${t("Watch")} (replay)` : t("Watch");
   const showGauges = phase === "countdown" || phase === "running";
 
   return (
@@ -404,31 +558,42 @@ export default function App() {
         </div>
         <StatusPills
           pills={[
-            { label: useWatch ? watchLabel : "Watch ignored", state: !useWatch ? "off" : bs?.sources.watch_streaming ? "on" : "off" },
-            { label: "Phone", state: bs?.sources.phone_connected ? "on" : "off" },
-            { label: "Camera", state: camPill },
-            { label: "Server", state: view?.backendUp ? "on" : "off" },
+            { label: useWatch ? watchLabel : t("Watch ignored"), state: !useWatch ? "off" : bs?.sources.watch_streaming ? "on" : "off" },
+            { label: t("Phone"), state: bs?.sources.phone_connected ? "on" : "off" },
+            { label: t("Camera"), state: camPill },
+            { label: t("Server"), state: view?.backendUp ? "on" : "off" },
           ]}
         />
         <div className="topbar-right">
+          {phase === "running" && handsFree && listener.current?.listening && (
+            <span className={`heard ${heard ? "ok" : ""}`} role="status">
+              {heard ? <Check size={16} aria-hidden="true" /> : <Mic size={16} aria-hidden="true" />}
+              {heard ?? t("Listening")}
+            </span>
+          )}
+          {(phase === "home" || phase === "summary") && <LanguageMenu value={language} onChange={changeLanguage} />}
           {live?.hrBpm != null && (
-            <span className="hr" aria-label={`Heart rate ${live.hrBpm}`}>
+            <span className="hr" aria-label={t("Heart rate %@", live.hrBpm)}>
               <Heart size={18} fill="currentColor" aria-hidden="true" />
               {live.hrBpm}
             </span>
           )}
-          <button className={`icon-btn ${metronomeOn ? "on" : ""}`} onClick={toggleMetronome} aria-pressed={metronomeOn} title="Metronome (B)">
+          <button className={`icon-btn ${metronomeOn ? "on" : ""}`} onClick={toggleMetronome} aria-pressed={metronomeOn} title={`${t("Metronome")} (B)`}>
             <Music size={20} aria-hidden="true" />
-            <span className="sr-only">Metronome</span>
+            <span className="sr-only">{t("Metronome")}</span>
           </button>
-          <button className={`icon-btn ${muted ? "" : "on"}`} onClick={toggleMute} aria-pressed={!muted} title="Voice coach (M)">
+          <button className={`icon-btn ${muted ? "" : "on"}`} onClick={toggleMute} aria-pressed={!muted} title={`${t("Voice coach")} (M)`}>
             {muted ? <VolumeX size={20} aria-hidden="true" /> : <Volume2 size={20} aria-hidden="true" />}
-            <span className="sr-only">Voice coach</span>
+            <span className="sr-only">{t("Voice coach")}</span>
           </button>
           {phase === "running" && live?.rate.source === "watch" && bs && (
-            <Timer seconds={bs.session.cycle_elapsed_s} label="Rescuer" />
+            <Timer seconds={bs.session.cycle_elapsed_s} label={t("Rescuer")} />
           )}
-          <Timer seconds={view?.elapsed ?? 0} label="Session" />
+          {/* A skills check counts down its 2 minutes; otherwise the session clock counts up. */}
+          <Timer
+            seconds={skills && phase === "running" ? Math.max(0, SKILLS.durationS - (view?.elapsed ?? 0)) : (view?.elapsed ?? 0)}
+            label={skills && phase === "running" ? t("Skills check") : t("Session")}
+          />
         </div>
       </header>
 
@@ -436,7 +601,7 @@ export default function App() {
         <CoachBanner
           rule={phase === "running" ? banner : null}
           detail={phase === "running" ? instructionDetail(banner?.id ?? null, live) : null}
-          idleText={phase === "countdown" ? "Get ready" : "Keep going"}
+          idleText={phase === "countdown" ? t("Get ready") : t("Keep going")}
         />
       )}
 
@@ -445,7 +610,7 @@ export default function App() {
           <CameraView ref={videoRef} canvasRef={canvasRef} status={view?.camStatus ?? "off"} error={view?.camError ?? null} />
           {phase === "countdown" && (
             <div className="countdown">
-              <span key={countdown}>{countdown > 0 ? countdown : "Go"}</span>
+              <span key={countdown}>{countdown > 0 ? countdown : t("Go")}</span>
             </div>
           )}
           {phase === "running" && name && <div className="rescuer-tag">{name}</div>}
@@ -454,27 +619,27 @@ export default function App() {
           <div className="side">
             <div className="params">
               <MetricTile
-                label="Rate"
+                label={t("Rate")}
                 value={live?.rate.cpm ?? null}
-                unit="/min"
+                unit={t("/min")}
                 scale={[80, 140]}
                 target={[TARGETS.rate_min_cpm, TARGETS.rate_max_cpm]}
-                outWords={["Too slow", "Too fast"]}
+                outWords={[t("Too slow"), t("Too fast")]}
                 source={live?.rate.source ?? null}
               />
               <MetricTile
-                label="Depth"
+                label={t("Depth")}
                 value={live?.depth.cm ?? null}
                 digits={1}
                 unit="cm"
                 scale={[0, 8]}
-                target={[TARGETS.depth_min_cm, TARGETS.depth_max_cm]}
-                outWords={["Too shallow", "Too deep"]}
+                target={[depthMin(), depthMax()]}
+                outWords={[t("Too shallow"), t("Too deep")]}
                 source={live?.depth.source ?? null}
                 estimate={live?.depth.estimate ?? false}
               />
             </div>
-            <section className="trace" aria-label="Compression trace">
+            <section className="trace" aria-label={t("Compressions")}>
               <Waveform
                 samples={view?.wave.samples ?? []}
                 ticks={view?.wave.ticks ?? []}
@@ -482,8 +647,8 @@ export default function App() {
                 spanS={CAMERA_COMPRESSIONS.traceS}
               />
               <header className="trace-head">
-                <h2 className="tile-label">Compressions</h2>
-                <span className="meta">{live?.compressionCount ?? 0} so far</span>
+                <h2 className="tile-label">{t("Compressions")}</h2>
+                <span className="meta">{t("%@ so far", live?.compressionCount ?? 0)}</span>
               </header>
             </section>
           </div>
@@ -492,8 +657,16 @@ export default function App() {
           <HomePanel
             name={name}
             onName={setName}
-            onStart={start}
+            onStart={() => start(false)}
+            onSkills={() => start(true)}
             onCalibrate={() => setPhase("calibrate")}
+            patient={patient}
+            onPatient={changePatient}
+            breaths={breathsMode}
+            onBreaths={setBreathsMode}
+            handsFree={handsFree}
+            onHandsFree={setHandsFree}
+            voiceSupported={VoiceListener.supported}
             board={board}
             calibration={calibration}
             error={homeError}
@@ -521,12 +694,23 @@ export default function App() {
       {live && (phase === "countdown" || phase === "running" || phase === "calibrate") && <PostureChecklist live={live} />}
 
       <footer className="footer">
-        <span>Training tool, not a medical device.</span>
-        <span>Space start or stop · S swap rescuer · W ignore watch · C camera · D details · F full screen</span>
+        <span>{t("Training tool, not a medical device.")}</span>
+        <span>{t("Space start or stop · S swap rescuer · W ignore watch · C camera · D details · F full screen")}</span>
       </footer>
 
       {phase === "summary" && (
-        <SummaryCard summary={summary} error={summaryError} added={added} onAdd={addToLeaderboard} onAgain={backHome} />
+        <SummaryCard
+          summary={summary}
+          error={summaryError}
+          added={added}
+          onAdd={addToLeaderboard}
+          onAgain={backHome}
+          skills={skills}
+          onHandoff={() => setShowHandoff(true)}
+        />
+      )}
+      {phase === "summary" && showHandoff && summary && (
+        <HandoffSheet events={events.current} summary={summary} swaps={swaps.current} onClose={() => setShowHandoff(false)} />
       )}
 
       {debug && view && (
@@ -580,31 +764,31 @@ function waveFor(live: LiveState, b: BackendSocket, p: CameraPipeline): View["wa
 function instructionDetail(ruleId: string | null, live: LiveState | undefined): string | null {
   if (!live) return null;
   const rate = live.rate.cpm === null ? null : Math.round(live.rate.cpm);
-  const depth = live.depth.cm === null ? null : `${live.depth.estimate ? "≈" : ""}${live.depth.cm.toFixed(1)} cm`;
+  const depth = live.depth.cm === null ? null : `${live.depth.estimate ? "≈" : ""}${num(live.depth.cm, 1)} cm`;
   switch (ruleId) {
     case "too_shallow":
     case "too_deep":
-      return depth !== null ? `Depth ${depth}. Aim for ${TARGETS.depth_min_cm}–${TARGETS.depth_max_cm} cm.` : null;
+      return depth !== null ? t("Depth %@. Aim for %@ cm.", depth, `${num(depthMin(), 1)}–${num(depthMax(), 1)}`) : null;
     case "too_slow":
     case "too_fast":
-      return rate !== null ? `${rate} per minute. Aim for ${TARGETS.rate_min_cpm}–${TARGETS.rate_max_cpm}, follow the beat.` : null;
+      return rate !== null ? t("%@ per minute. Aim for 100–120, follow the beat.", rate) : null;
     case "elbows_bent":
-      return live.posture.elbowAngleDeg !== null ? `Elbows at ${Math.round(live.posture.elbowAngleDeg)}°. Straighten your arms.` : null;
+      return live.posture.elbowAngleDeg !== null ? t("Elbows at %@°. Straighten your arms.", Math.round(live.posture.elbowAngleDeg)) : null;
     case "not_over_hands":
-      return "Lean forward so your shoulders are directly above your hands.";
+      return t("Lean forward so your shoulders are above your hands.");
     case "incomplete_recoil":
-      return "Lift your weight off the chest between compressions.";
+      return t("Lift your weight off the chest between pushes, but keep your hands on it.");
     case "swap_soon":
-      return live.swapInS !== null
-        ? `Depth is trending down: below ${TARGETS.depth_min_cm} cm in about ${Math.round(live.swapInS)} s.`
-        : null;
+      return live.swapInS !== null ? t("Depth is trending down: below %@ cm in about %@ s.", num(depthMin(), 1), Math.round(live.swapInS)) : null;
+    case "breaths":
+      return t("Tilt the head back, lift the chin, 2 breaths of 1 second each. Then straight back to compressions.");
     case "swap":
-      return "Two minutes of compressions or depth is dropping. Hand over without pausing.";
+      return t("Hand over to the next person without pausing.");
     case "no_compressions":
-      return "Every second without compressions counts.";
+      return t("Every second without compressions counts.");
     case "praise":
-      return rate !== null && depth !== null ? `${rate} per minute at ${depth}.` : null;
+      return rate !== null && depth !== null ? t("%@ per minute at %@.", rate, depth) : null;
     default:
-      return rate !== null ? `${rate} per minute${depth ? ` at ${depth}` : ""}.` : null;
+      return rate !== null ? (depth ? t("%@ per minute at %@.", rate, depth) : t("%@ per minute.", rate)) : null;
   }
 }

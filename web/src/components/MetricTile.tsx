@@ -2,6 +2,7 @@
 // colour), a status chip that pairs icon + words, and a meter whose fill carries the status.
 import { CircleCheck, TriangleAlert } from "lucide-react";
 import type { Source } from "../fusion/fuse";
+import { num, t } from "../i18n";
 
 export interface MetricTileProps {
   label: string;
@@ -21,10 +22,10 @@ export function MetricTile({ label, value, digits = 0, unit, scale, target, outW
   const pos = (v: number) => (Math.min(hi, Math.max(lo, v)) - lo) / (hi - lo);
   const state = value === null ? "none" : value < target[0] ? "low" : value > target[1] ? "high" : "ok";
   const chip =
-    state === "ok" ? { cls: "good", text: "On target", Icon: CircleCheck } :
+    state === "ok" ? { cls: "good", text: t("On target"), Icon: CircleCheck } :
     state === "low" ? { cls: "warn", text: outWords[0], Icon: TriangleAlert } :
     state === "high" ? { cls: "warn", text: outWords[1], Icon: TriangleAlert } : null;
-  const shown = value === null ? "—" : `${estimate ? "≈" : ""}${value.toFixed(digits)}`;
+  const shown = value === null ? "—" : `${estimate ? "≈" : ""}${num(value, digits)}`;
 
   return (
     <section className="tile" aria-label={label}>
@@ -43,7 +44,7 @@ export function MetricTile({ label, value, digits = 0, unit, scale, target, outW
           <span className="tile-unit">{unit}</span>
         </span>
       </p>
-      <div className="meter" role="meter" aria-valuemin={lo} aria-valuemax={hi} aria-valuenow={value ?? undefined} aria-label={`${label} meter`}>
+      <div className="meter" role="meter" aria-valuemin={lo} aria-valuemax={hi} aria-valuenow={value ?? undefined} aria-label={label}>
         <div className="meter-target" style={{ left: `${pos(target[0]) * 100}%`, width: `${(pos(target[1]) - pos(target[0])) * 100}%` }} />
         {value !== null && (
           <>
@@ -53,10 +54,8 @@ export function MetricTile({ label, value, digits = 0, unit, scale, target, outW
         )}
       </div>
       <footer className="tile-foot">
-        <span>
-          Target {target[0]}–{target[1]}
-        </span>
-        <span>{source ? `${source[0].toUpperCase()}${source.slice(1)}${estimate ? " estimate" : ""}` : "No data yet"}</span>
+        <span>{t("Target %@", `${target[0]}–${target[1]}`)}</span>
+        <span>{source ? (estimate ? t("Camera estimate") : t(source === "watch" ? "Watch" : "Camera")) : t("No data yet")}</span>
       </footer>
     </section>
   );

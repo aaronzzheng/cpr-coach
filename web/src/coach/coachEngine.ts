@@ -24,6 +24,12 @@ export class CoachEngine {
     this.greenSince = null;
   }
 
+  /** A line the app spoke itself (e.g. the breaths prompt), so it isn't repeated. */
+  markSpoken(id: RuleId, now: number): void {
+    this.lastSpokenAt = now;
+    this.ruleSpokenAt.set(id, now);
+  }
+
   /** `now` in seconds on any monotonic clock; `runningS` is time since the session started. */
   evaluate(live: LiveState, runningS: number, now: number): CoachDecision {
     if (isAllGreen(live)) this.greenSince ??= now;
@@ -32,7 +38,7 @@ export class CoachEngine {
     const ctx = { live, runningS, allGreenS: this.greenSince === null ? 0 : now - this.greenSince };
     const warmup = runningS < COACH.warmupS;
     const active = this.rules
-      .filter((r) => (!warmup || r.duringWarmup) && r.active(ctx))
+      .filter((r) => (!warmup || r.duringWarmup) && (!live.breathPause || r.id === "breaths") && r.active(ctx))
       .sort((a, b) => a.priority - b.priority);
 
     const banner = active[0] ?? null;

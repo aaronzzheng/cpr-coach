@@ -1,5 +1,6 @@
 // Depth over time for the summary, with the AHA green band and the fatigue moment.
 import { TARGETS } from "../config";
+import { depthMax, depthMin } from "../patient";
 
 /** Lift the pen across pauses so hands-off time doesn't look like steady depth. */
 const BREAK_S = TARGETS.pause_threshold_s;
@@ -24,8 +25,8 @@ export function DepthChart({ series, fatigueAt }: { series: [number, number][]; 
       <rect
         x={PAD.l}
         width={W - PAD.l - PAD.r}
-        y={y(TARGETS.depth_max_cm)}
-        height={y(TARGETS.depth_min_cm) - y(TARGETS.depth_max_cm)}
+        y={y(depthMax())}
+        height={y(depthMin()) - y(depthMax())}
         className="chart-band"
       />
       {[0, 2, 4, 6, 8].map((cm) => (

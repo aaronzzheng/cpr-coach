@@ -58,6 +58,7 @@ export type ServerMsg = StateMsg | CompressionMsg;
 
 export type ClientCmd =
   | { cmd: "start"; name: string }
+  | { cmd: "planned_pause" }
   | { cmd: "stop" }
   | { cmd: "swap" }
   | { cmd: "metronome"; on: boolean; bpm: number };

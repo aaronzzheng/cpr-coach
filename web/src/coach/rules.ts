@@ -1,10 +1,12 @@
 // Coach rule table (PRD §8.4): priority order, condition, spoken line and banner color.
 import { COACH, TARGETS } from "../config";
+import { depthMax, depthMin, tooDeepCm } from "../patient";
 import type { LiveState } from "../fusion/fuse";
 
 export type BannerColor = "red" | "amber" | "purple" | "green";
 
 export type RuleId =
+  | "breaths"
   | "no_compressions"
   | "swap"
   | "swap_soon"
@@ -43,12 +45,22 @@ export function isAllGreen(l: LiveState): boolean {
   if (l.lastCompressionAgeS === null || l.lastCompressionAgeS >= COACH.noCompressionS) return false;
   if (l.rate.cpm === null || l.rate.cpm < TARGETS.rate_min_cpm || l.rate.cpm > TARGETS.rate_max_cpm) return false;
   const d = depthFor(l);
-  if (d !== null && (d < TARGETS.depth_min_cm || d > TARGETS.depth_max_cm)) return false;
+  if (d !== null && (d < depthMin() || d > depthMax())) return false;
   if (l.posture.elbowViolation || l.posture.alignViolation || l.posture.incompleteRecoil) return false;
   return !l.swapRecommended;
 }
 
 export const RULES: Rule[] = [
+  {
+    id: "breaths",
+    priority: 0,
+    line: "Give 2 breaths.",
+    banner: "Give 2 breaths",
+    color: "purple",
+    duringWarmup: true,
+    cooldownS: 60,
+    active: (c) => c.live.breathPause,
+  },
   {
     id: "no_compressions",
     priority: 1,
@@ -58,9 +70,10 @@ export const RULES: Rule[] = [
     duringWarmup: true,
     cooldownS: COACH.ruleCooldownS,
     active: (c) =>
-      c.live.lastCompressionAgeS === null
+      !c.live.breathPause &&
+      (c.live.lastCompressionAgeS === null
         ? c.runningS >= COACH.noCompressionS
-        : c.live.lastCompressionAgeS >= COACH.noCompressionS,
+        : c.live.lastCompressionAgeS >= COACH.noCompressionS),
   },
   {
     id: "swap",
@@ -92,7 +105,7 @@ export const RULES: Rule[] = [
     cooldownS: COACH.ruleCooldownS,
     active: (c) => {
       const d = depthFor(c.live);
-      return d !== null && d < TARGETS.depth_min_cm;
+      return d !== null && d < depthMin();
     },
   },
   {
@@ -155,7 +168,7 @@ export const RULES: Rule[] = [
     cooldownS: COACH.ruleCooldownS,
     active: (c) => {
       const d = depthFor(c.live);
-      return d !== null && d > COACH.tooDeepCm;
+      return d !== null && d > tooDeepCm();
     },
   },
   {

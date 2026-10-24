@@ -1,0 +1,1514 @@
+{
+ "%@ compressions in %@": {
+  "es": "%@ compresiones en %@",
+  "fr": "%@ compressions en %@",
+  "hi": "%@ कंप्रेशन, समय %@",
+  "ja": "圧迫 %@回・%@",
+  "ko": "압박 %@회 · %@",
+  "zh": "%@ 次按压，用时 %@"
+ },
+ "%@ minutes %@ seconds, %@ compressions.": {
+  "es": "%@ minutos %@ segundos, %@ compresiones.",
+  "fr": "%@ minutes %@ secondes, %@ compressions.",
+  "hi": "%@ मिनट %@ सेकंड, %@ कंप्रेशन।",
+  "ja": "%@分%@秒、圧迫%@回。",
+  "ko": "%@분 %@초, 압박 %@회예요.",
+  "zh": "%@ 分 %@ 秒，%@ 次按压。"
+ },
+ "%@ per minute at %@.": {
+  "es": "%@ por minuto a %@.",
+  "fr": "%@ par minute à %@.",
+  "hi": "%@ प्रति मिनट, %@ पर।",
+  "ja": "毎分%@回、%@。",
+  "ko": "분당 %@회, %@.",
+  "zh": "每分钟 %@ 次，深度 %@。"
+ },
+ "%@ per minute.": {
+  "es": "%@ por minuto.",
+  "fr": "%@ par minute.",
+  "hi": "%@ प्रति मिनट।",
+  "ja": "毎分%@回。",
+  "ko": "분당 %@회.",
+  "zh": "每分钟 %@ 次。"
+ },
+ "%@ per minute. Aim for 100–120, follow the beat.": {
+  "es": "%@ por minuto. Apunta a 100–120, sigue el ritmo.",
+  "fr": "%@ par minute. Vise 100–120, suis le rythme.",
+  "hi": "%@ प्रति मिनट। 100–120 का लक्ष्य रखिए, बीट के साथ चलिए।",
+  "ja": "毎分%@回。100–120回を目指し、リズムに合わせて。",
+  "ko": "분당 %@회. 100–120회를 목표로 박자에 맞추세요.",
+  "zh": "每分钟 %@ 次。目标 100–120 次，跟着节拍。"
+ },
+ "%@ seconds, %@ compressions.": {
+  "es": "%@ segundos, %@ compresiones.",
+  "fr": "%@ secondes, %@ compressions.",
+  "hi": "%@ सेकंड, %@ कंप्रेशन।",
+  "ja": "%@秒、圧迫%@回。",
+  "ko": "%@초, 압박 %@회예요.",
+  "zh": "%@ 秒，%@ 次按压。"
+ },
+ "%@ so far": {
+  "es": "%@ hasta ahora",
+  "fr": "%@ jusqu'ici",
+  "hi": "अब तक %@",
+  "ja": "ここまで%@回",
+  "ko": "지금까지 %@회",
+  "zh": "已按压 %@ 次"
+ },
+ "%@ · longest %@ s": {
+  "es": "%@ · la más larga, %@ s",
+  "fr": "%@ · la plus longue : %@ s",
+  "hi": "%@ · सबसे लंबा %@ s",
+  "ja": "%@回・最長%@秒",
+  "ko": "%@회 · 최장 %@초",
+  "zh": "%@ 次 · 最长 %@ 秒"
+ },
+ "%@. Allow camera access for this page, then press C.": {
+  "es": "%@. Permite el acceso a la cámara en esta página y pulsa C.",
+  "fr": "%@. Autorise l'accès à la caméra pour cette page, puis appuie sur C.",
+  "hi": "%@। इस पेज के लिए कैमरा एक्सेस की अनुमति दीजिए, फिर C दबाइए।",
+  "ja": "%@。このページにカメラへのアクセスを許可してから、Cを押してください。",
+  "ko": "%@. 이 페이지의 카메라 접근을 허용한 뒤 C를 누르세요.",
+  "zh": "%@。请允许此页面访问摄像头，然后按 C。"
+ },
+ "/min": {
+  "es": "/min",
+  "fr": "/min",
+  "hi": "/मिनट",
+  "ja": "回/分",
+  "ko": "회/분",
+  "zh": "次/分"
+ },
+ "30:2 breaths": {
+  "es": "Ventilaciones 30:2",
+  "fr": "30:2 insufflations",
+  "hi": "30:2 कृत्रिम साँसें",
+  "ja": "30:2 人工呼吸",
+  "ko": "30:2 인공호흡",
+  "zh": "30:2 人工呼吸"
+ },
+ "5 cm compressions": {
+  "es": "Compresiones de 5 cm",
+  "fr": "Compressions de 5 cm",
+  "hi": "5 cm के कंप्रेशन",
+  "ja": "5 cmの圧迫",
+  "ko": "5 cm 압박",
+  "zh": "5 cm 按压"
+ },
+ "A little less force": {
+  "es": "Un poco menos de fuerza",
+  "fr": "Un peu moins fort",
+  "hi": "थोड़ा कम ज़ोर",
+  "ja": "少し弱く",
+  "ko": "조금 약하게",
+  "zh": "轻一点"
+ },
+ "A little less force.": {
+  "es": "Un poco menos de fuerza.",
+  "fr": "Un peu moins fort.",
+  "hi": "थोड़ा कम ज़ोर।",
+  "ja": "少し弱く。",
+  "ko": "조금 약하게 누르세요.",
+  "zh": "轻一点。"
+ },
+ "A timed 2-minute test, pass or fail": {
+  "es": "Prueba cronometrada de 2 minutos: apto o no apto",
+  "fr": "Test chronométré de 2 minutes, réussi ou non",
+  "hi": "2 मिनट का समयबद्ध टेस्ट, पास या फ़ेल",
+  "ja": "2分間の合否テスト",
+  "ko": "2분 동안 진행하는 합격/불합격 평가",
+  "zh": "限时 2 分钟测试，判定是否合格"
+ },
+ "Act now": {
+  "es": "Actúa ya",
+  "fr": "Agis maintenant",
+  "hi": "अभी कदम उठाइए",
+  "ja": "今すぐ修正",
+  "ko": "즉시 교정",
+  "zh": "立即纠正"
+ },
+ "Adjust": {
+  "es": "Ajusta",
+  "fr": "Ajuste",
+  "hi": "सुधारिए",
+  "ja": "要調整",
+  "ko": "조정 필요",
+  "zh": "需调整"
+ },
+ "Adult": {
+  "es": "Adulto",
+  "fr": "Adulte",
+  "hi": "वयस्क",
+  "ja": "成人",
+  "ko": "성인",
+  "zh": "成人"
+ },
+ "Arm visible": {
+  "es": "Brazo visible",
+  "fr": "Bras visible",
+  "hi": "बाँह दिख रही है",
+  "ja": "腕が映っています",
+  "ko": "팔 인식됨",
+  "zh": "手臂在画面中"
+ },
+ "Average depth": {
+  "es": "Profundidad media",
+  "fr": "Profondeur moyenne",
+  "hi": "औसत गहराई",
+  "ja": "平均の深さ",
+  "ko": "평균 깊이",
+  "zh": "平均深度"
+ },
+ "Average depth: %@ cm": {
+  "es": "Profundidad media: %@ cm",
+  "fr": "Profondeur moyenne : %@ cm",
+  "hi": "औसत गहराई: %@ cm",
+  "ja": "平均の深さ：%@ cm",
+  "ko": "평균 깊이: %@ cm",
+  "zh": "平均深度：%@ cm"
+ },
+ "Average rate": {
+  "es": "Frecuencia media",
+  "fr": "Fréquence moyenne",
+  "hi": "औसत रफ़्तार",
+  "ja": "平均テンポ",
+  "ko": "평균 속도",
+  "zh": "平均频率"
+ },
+ "Average rate: %@ /min": {
+  "es": "Frecuencia media: %@ /min",
+  "fr": "Fréquence moyenne : %@ /min",
+  "hi": "औसत रफ़्तार: %@ /मिनट",
+  "ja": "平均テンポ：%@ 回/分",
+  "ko": "평균 속도: %@회/분",
+  "zh": "平均频率：%@ 次/分"
+ },
+ "Back": {
+  "es": "Atrás",
+  "fr": "Retour",
+  "hi": "वापस",
+  "ja": "戻る",
+  "ko": "뒤로",
+  "zh": "返回"
+ },
+ "CPR Coach handoff": {
+  "es": "Traspaso de CPR Coach",
+  "fr": "Transmission CPR Coach",
+  "hi": "CPR Coach हैंडओवर",
+  "ja": "CPR Coach 引き継ぎ",
+  "ko": "CPR Coach 인계 보고",
+  "zh": "CPR Coach 交接报告"
+ },
+ "CPR time": {
+  "es": "Tiempo de RCP",
+  "fr": "Durée de RCP",
+  "hi": "CPR समय",
+  "ja": "CPR時間",
+  "ko": "심폐소생술 시간",
+  "zh": "心肺复苏时长"
+ },
+ "CPR time: %@ min %@ s": {
+  "es": "Tiempo de RCP: %@ min %@ s",
+  "fr": "Durée de RCP : %@ min %@ s",
+  "hi": "CPR समय: %@ मिनट %@ s",
+  "ja": "CPR時間：%@分%@秒",
+  "ko": "심폐소생술 시간: %@분 %@초",
+  "zh": "心肺复苏时长：%@ 分 %@ 秒"
+ },
+ "Calibrate": {
+  "es": "Calibrar",
+  "fr": "Calibrer",
+  "hi": "कैलिब्रेट करें",
+  "ja": "補正",
+  "ko": "보정",
+  "zh": "校准"
+ },
+ "Calibrate depth": {
+  "es": "Calibrar profundidad",
+  "fr": "Calibrer la profondeur",
+  "hi": "गहराई कैलिब्रेट करें",
+  "ja": "深さを補正",
+  "ko": "깊이 보정",
+  "zh": "校准深度"
+ },
+ "Calibration looks off. Try again.": {
+  "es": "La calibración no parece correcta. Inténtalo de nuevo.",
+  "fr": "La calibration semble incorrecte. Réessaie.",
+  "hi": "कैलिब्रेशन ठीक नहीं लग रहा। फिर से कोशिश कीजिए।",
+  "ja": "補正結果がおかしいようです。もう一度試してください。",
+  "ko": "보정 결과가 이상해요. 다시 시도하세요.",
+  "zh": "校准结果似乎不准确，请重试。"
+ },
+ "Camera": {
+  "es": "Cámara",
+  "fr": "Caméra",
+  "hi": "कैमरा",
+  "ja": "カメラ",
+  "ko": "카메라",
+  "zh": "摄像头"
+ },
+ "Camera depth check": {
+  "es": "Comprobación de profundidad de la cámara",
+  "fr": "Contrôle de profondeur de la caméra",
+  "hi": "कैमरा गहराई जाँच",
+  "ja": "カメラの深さチェック",
+  "ko": "카메라 깊이 확인",
+  "zh": "摄像头深度检查"
+ },
+ "Camera estimate": {
+  "es": "Estimación de la cámara",
+  "fr": "Estimation de la caméra",
+  "hi": "कैमरा अनुमान",
+  "ja": "カメラ推定",
+  "ko": "카메라 추정치",
+  "zh": "摄像头估算"
+ },
+ "Camera off": {
+  "es": "Cámara apagada",
+  "fr": "Caméra désactivée",
+  "hi": "कैमरा बंद",
+  "ja": "カメラオフ",
+  "ko": "카메라 꺼짐",
+  "zh": "摄像头已关闭"
+ },
+ "Camera scale": {
+  "es": "Escala de la cámara",
+  "fr": "Échelle de la caméra",
+  "hi": "कैमरा स्केल",
+  "ja": "カメラの係数",
+  "ko": "카메라 배율",
+  "zh": "摄像头系数"
+ },
+ "Camera unavailable": {
+  "es": "Cámara no disponible",
+  "fr": "Caméra indisponible",
+  "hi": "कैमरा उपलब्ध नहीं",
+  "ja": "カメラを使用できません",
+  "ko": "카메라를 사용할 수 없음",
+  "zh": "摄像头不可用"
+ },
+ "Can't reach the backend. Run make dev or make demo.": {
+  "es": "No se puede conectar con el servidor. Ejecuta make dev o make demo.",
+  "fr": "Impossible de joindre le serveur. Lance make dev ou make demo.",
+  "hi": "बैकएंड से संपर्क नहीं हो पा रहा। make dev या make demo चलाइए।",
+  "ja": "バックエンドに接続できません。make dev または make demo を実行してください。",
+  "ko": "백엔드에 연결할 수 없어요. make dev 또는 make demo를 실행하세요.",
+  "zh": "无法连接后端。请运行 make dev 或 make demo。"
+ },
+ "Cancel": {
+  "es": "Cancelar",
+  "fr": "Annuler",
+  "hi": "रद्द करें",
+  "ja": "キャンセル",
+  "ko": "취소",
+  "zh": "取消"
+ },
+ "Child": {
+  "es": "Niño",
+  "fr": "Enfant",
+  "hi": "बच्चा",
+  "ja": "小児",
+  "ko": "소아",
+  "zh": "儿童"
+ },
+ "Close": {
+  "es": "Cerrar",
+  "fr": "Fermer",
+  "hi": "बंद करें",
+  "ja": "閉じる",
+  "ko": "닫기",
+  "zh": "关闭"
+ },
+ "Compressions": {
+  "es": "Compresiones",
+  "fr": "Compressions",
+  "hi": "कंप्रेशन",
+  "ja": "圧迫回数",
+  "ko": "가슴압박",
+  "zh": "按压次数"
+ },
+ "Compressions started": {
+  "es": "Compresiones iniciadas",
+  "fr": "Compressions commencées",
+  "hi": "कंप्रेशन शुरू हुए",
+  "ja": "胸骨圧迫開始",
+  "ko": "가슴압박 시작",
+  "zh": "开始按压"
+ },
+ "Compressions stopped": {
+  "es": "Compresiones detenidas",
+  "fr": "Compressions arrêtées",
+  "hi": "कंप्रेशन रुक गए",
+  "ja": "胸骨圧迫を中断中",
+  "ko": "가슴압박 중단됨",
+  "zh": "按压已中断"
+ },
+ "Compressions: %@": {
+  "es": "Compresiones: %@",
+  "fr": "Compressions : %@",
+  "hi": "कंप्रेशन: %@",
+  "ja": "圧迫回数：%@",
+  "ko": "가슴압박: %@회",
+  "zh": "按压次数：%@"
+ },
+ "Connections": {
+  "es": "Conexiones",
+  "fr": "Connexions",
+  "hi": "कनेक्शन",
+  "ja": "接続状況",
+  "ko": "연결 상태",
+  "zh": "连接状态"
+ },
+ "Copied": {
+  "es": "Copiado",
+  "fr": "Copié",
+  "hi": "कॉपी हुआ",
+  "ja": "コピーしました",
+  "ko": "복사됨",
+  "zh": "已复制"
+ },
+ "Copy report": {
+  "es": "Copiar informe",
+  "fr": "Copier le bilan",
+  "hi": "रिपोर्ट कॉपी करें",
+  "ja": "レポートをコピー",
+  "ko": "보고서 복사",
+  "zh": "复制报告"
+ },
+ "Couldn't score this session: %@": {
+  "es": "No se pudo puntuar esta sesión: %@",
+  "fr": "Impossible de noter cette séance : %@",
+  "hi": "इस सेशन का स्कोर नहीं निकल सका: %@",
+  "ja": "このセッションを採点できませんでした：%@",
+  "ko": "이 세션의 점수를 계산할 수 없어요: %@",
+  "zh": "无法为本次练习评分：%@"
+ },
+ "Depth": {
+  "es": "Profundidad",
+  "fr": "Profondeur",
+  "hi": "गहराई",
+  "ja": "深さ",
+  "ko": "깊이",
+  "zh": "深度"
+ },
+ "Depth %@ centimeters.": {
+  "es": "Profundidad %@ centímetros.",
+  "fr": "Profondeur %@ centimètres.",
+  "hi": "गहराई %@ सेंटीमीटर।",
+  "ja": "深さ%@センチ。",
+  "ko": "깊이 %@센티미터.",
+  "zh": "深度 %@ 厘米。"
+ },
+ "Depth %@. Aim for %@ cm.": {
+  "es": "Profundidad %@. Apunta a %@ cm.",
+  "fr": "Profondeur %@. Vise %@ cm.",
+  "hi": "गहराई %@। %@ cm का लक्ष्य रखिए।",
+  "ja": "深さ%@。%@ cmを目指して。",
+  "ko": "깊이 %@. %@ cm를 목표로 하세요.",
+  "zh": "深度 %@。目标 %@ cm。"
+ },
+ "Depth in range": {
+  "es": "Profundidad en rango",
+  "fr": "Profondeur dans la cible",
+  "hi": "गहराई सही दायरे में",
+  "ja": "深さ適正",
+  "ko": "적정 깊이",
+  "zh": "深度达标"
+ },
+ "Depth in range (est.)": {
+  "es": "Profundidad en rango (est.)",
+  "fr": "Profondeur dans la cible (est.)",
+  "hi": "गहराई सही दायरे में (अनुमान)",
+  "ja": "深さ適正（推定）",
+  "ko": "적정 깊이 (추정)",
+  "zh": "深度达标（估算）"
+ },
+ "Depth is trending down: below %@ cm in about %@ s.": {
+  "es": "La profundidad está bajando: menos de %@ cm en unos %@ s.",
+  "fr": "La profondeur diminue : sous %@ cm dans environ %@ s.",
+  "hi": "गहराई घट रही है: %@ cm से नीचे, लगभग %@ सेकंड में।",
+  "ja": "深さが浅くなっています。%@ cm未満まであと約%@秒。",
+  "ko": "깊이가 줄고 있어요. %@ cm 아래로 떨어지기까지 약 %@초 남았어요.",
+  "zh": "深度在变浅，快要低于 %@ cm 了，大约还有 %@ 秒。"
+ },
+ "Depth on target": {
+  "es": "Profundidad en objetivo",
+  "fr": "Profondeur dans la cible",
+  "hi": "गहराई लक्ष्य पर",
+  "ja": "深さ 目標どおり",
+  "ko": "적정 깊이",
+  "zh": "深度达标"
+ },
+ "Depth over time": {
+  "es": "Profundidad a lo largo del tiempo",
+  "fr": "Profondeur au fil du temps",
+  "hi": "समय के साथ गहराई",
+  "ja": "深さの推移",
+  "ko": "시간별 깊이",
+  "zh": "深度变化"
+ },
+ "Do %@ compressions that press the cushion down exactly 5 cm. Use the ruler. Follow the metronome.": {
+  "es": "Haz %@ compresiones que hundan el cojín exactamente 5 cm. Usa la regla. Sigue el metrónomo.",
+  "fr": "Fais %@ compressions qui enfoncent le coussin d'exactement 5 cm. Utilise la règle. Suis le métronome.",
+  "hi": "%@ कंप्रेशन कीजिए जो कुशन को ठीक 5 cm नीचे दबाएँ। रूलर का इस्तेमाल कीजिए। मेट्रोनोम के साथ चलिए।",
+  "ja": "クッションをちょうど5 cm押し下げる圧迫を%@回行ってください。定規を使い、メトロノームに合わせて。",
+  "ko": "쿠션이 정확히 5 cm 눌리도록 %@회 압박하세요. 자를 참고하고 메트로놈에 맞추세요.",
+  "zh": "按压 %@ 次，每次将垫子正好压下 5 cm。参照尺子，跟随节拍器。"
+ },
+ "Done": {
+  "es": "Listo",
+  "fr": "Terminé",
+  "hi": "हो गया",
+  "ja": "完了",
+  "ko": "완료",
+  "zh": "完成"
+ },
+ "Elbows at %@°. Straighten your arms.": {
+  "es": "Codos a %@°. Estira los brazos.",
+  "fr": "Coudes à %@°. Tends les bras.",
+  "hi": "कोहनियाँ %@° पर। बाँहें सीधी कीजिए।",
+  "ja": "肘の角度%@°。腕をまっすぐ伸ばして。",
+  "ko": "팔꿈치 %@°. 팔을 곧게 펴세요.",
+  "zh": "肘部 %@°。伸直手臂。"
+ },
+ "Elbows locked": {
+  "es": "Codos rectos",
+  "fr": "Bras tendus",
+  "hi": "कोहनियाँ सीधी",
+  "ja": "肘が伸びている",
+  "ko": "팔꿈치 폄",
+  "zh": "肘部伸直"
+ },
+ "Every second without compressions counts.": {
+  "es": "Cada segundo sin compresiones cuenta.",
+  "fr": "Chaque seconde sans compressions compte.",
+  "hi": "कंप्रेशन के बिना हर सेकंड मायने रखता है।",
+  "ja": "圧迫しない1秒1秒が命取りです。",
+  "ko": "가슴압박이 없는 1초 1초가 중요해요.",
+  "zh": "按压中断的每一秒都很关键。"
+ },
+ "Faster": {
+  "es": "Más rápido",
+  "fr": "Plus vite",
+  "hi": "और तेज़",
+  "ja": "もっと速く",
+  "ko": "더 빠르게",
+  "zh": "加快"
+ },
+ "Faster.": {
+  "es": "Más rápido.",
+  "fr": "Plus vite.",
+  "hi": "और तेज़।",
+  "ja": "もっと速く。",
+  "ko": "더 빠르게요.",
+  "zh": "快一点。"
+ },
+ "Fatigue": {
+  "es": "Fatiga",
+  "fr": "Fatigue",
+  "hi": "थकान",
+  "ja": "疲労度",
+  "ko": "피로도",
+  "zh": "疲劳度"
+ },
+ "Finish now": {
+  "es": "Terminar ya",
+  "fr": "Terminer maintenant",
+  "hi": "अभी समाप्त करें",
+  "ja": "今すぐ終了",
+  "ko": "지금 끝내기",
+  "zh": "立即结束"
+ },
+ "For paramedics": {
+  "es": "Para paramédicos",
+  "fr": "Pour les secours",
+  "hi": "पैरामेडिक्स के लिए",
+  "ja": "救急隊向け",
+  "ko": "구급대원용",
+  "zh": "交给急救人员"
+ },
+ "Form": {
+  "es": "Postura",
+  "fr": "Posture",
+  "hi": "पोस्चर",
+  "ja": "姿勢",
+  "ko": "자세",
+  "zh": "姿势"
+ },
+ "Framing": {
+  "es": "Encuadre",
+  "fr": "Cadrage",
+  "hi": "फ़्रेमिंग",
+  "ja": "画角",
+  "ko": "화면 구도",
+  "zh": "取景"
+ },
+ "Get ready": {
+  "es": "Prepárate",
+  "fr": "Prépare-toi",
+  "hi": "तैयार हो जाइए",
+  "ja": "準備して",
+  "ko": "준비",
+  "zh": "准备"
+ },
+ "Get ready.": {
+  "es": "Prepárate.",
+  "fr": "Prépare-toi.",
+  "hi": "तैयार हो जाइए।",
+  "ja": "準備して。",
+  "ko": "준비하세요.",
+  "zh": "准备。"
+ },
+ "Give 2 breaths": {
+  "es": "Da 2 ventilaciones",
+  "fr": "2 insufflations",
+  "hi": "2 कृत्रिम साँसें दीजिए",
+  "ja": "人工呼吸2回",
+  "ko": "인공호흡 2회",
+  "zh": "2 次人工呼吸"
+ },
+ "Give 2 breaths.": {
+  "es": "Da 2 ventilaciones.",
+  "fr": "Fais 2 insufflations.",
+  "hi": "2 कृत्रिम साँसें दीजिए।",
+  "ja": "人工呼吸を2回。",
+  "ko": "인공호흡을 2회 하세요.",
+  "zh": "做 2 次人工呼吸。"
+ },
+ "Go": {
+  "es": "¡Ya!",
+  "fr": "Partez !",
+  "hi": "शुरू!",
+  "ja": "スタート！",
+  "ko": "시작!",
+  "zh": "开始！"
+ },
+ "Good": {
+  "es": "Bien",
+  "fr": "Bien",
+  "hi": "अच्छा",
+  "ja": "良好",
+  "ko": "좋아요",
+  "zh": "很好"
+ },
+ "Grade %@": {
+  "es": "Nota %@",
+  "fr": "Note %@",
+  "hi": "ग्रेड %@",
+  "ja": "評価 %@",
+  "ko": "등급 %@",
+  "zh": "评级 %@"
+ },
+ "Great compressions": {
+  "es": "Muy buenas compresiones",
+  "fr": "Très bonnes compressions",
+  "hi": "बढ़िया कंप्रेशन",
+  "ja": "いい圧迫",
+  "ko": "압박 아주 좋아요",
+  "zh": "按压很好"
+ },
+ "Great compressions, keep going.": {
+  "es": "Muy buenas compresiones, sigue así.",
+  "fr": "Très bonnes compressions, continue.",
+  "hi": "बढ़िया कंप्रेशन, जारी रखिए।",
+  "ja": "いい圧迫です。続けて。",
+  "ko": "압박 아주 좋아요, 계속하세요.",
+  "zh": "按得很好，继续。"
+ },
+ "Hand over to the next person without pausing.": {
+  "es": "Pasa el relevo a la siguiente persona sin hacer pausa.",
+  "fr": "Passe le relais à la personne suivante sans interruption.",
+  "hi": "बिना रुके अगले व्यक्ति को सौंपिए।",
+  "ja": "中断せずに次の人と交代して。",
+  "ko": "쉬지 말고 바로 다음 구조자와 교대하세요.",
+  "zh": "立即交给下一位施救者，不要中断。"
+ },
+ "Hands on chest": {
+  "es": "Manos en el pecho",
+  "fr": "Mains sur la poitrine",
+  "hi": "हाथ छाती पर",
+  "ja": "胸に手がある時間",
+  "ko": "가슴압박 비율",
+  "zh": "按压占比"
+ },
+ "Hands-free": {
+  "es": "Manos libres",
+  "fr": "Mains libres",
+  "hi": "हैंड्स-फ़्री",
+  "ja": "ハンズフリー",
+  "ko": "핸즈프리",
+  "zh": "免手动"
+ },
+ "Hands-on time: %@": {
+  "es": "Tiempo con manos en el pecho: %@",
+  "fr": "Mains sur la poitrine : %@",
+  "hi": "हाथ छाती पर: %@",
+  "ja": "圧迫時間の割合：%@",
+  "ko": "가슴압박 비율: %@",
+  "zh": "按压占比：%@"
+ },
+ "Heart rate %@": {
+  "es": "Frecuencia cardiaca %@",
+  "fr": "Fréquence cardiaque %@",
+  "hi": "हृदय गति %@",
+  "ja": "心拍数 %@",
+  "ko": "심박수 %@",
+  "zh": "心率 %@"
+ },
+ "How am I doing": {
+  "es": "Cómo voy",
+  "fr": "Comment je fais",
+  "hi": "कैसा कर रहा हूँ",
+  "ja": "調子は？",
+  "ko": "어때",
+  "zh": "怎么样"
+ },
+ "How long": {
+  "es": "Cuánto tiempo",
+  "fr": "Combien de temps",
+  "hi": "कितना समय",
+  "ja": "どのくらい",
+  "ko": "얼마나",
+  "zh": "多久"
+ },
+ "I can't see compressions yet. Push hard and fast.": {
+  "es": "Aún no detecto compresiones. Empuja fuerte y rápido.",
+  "fr": "Je ne vois pas encore de compressions. Appuie fort et vite.",
+  "hi": "मुझे अभी कंप्रेशन नहीं दिख रहे। ज़ोर से और तेज़ी से दबाइए।",
+  "ja": "まだ圧迫が見えません。強く速く押して。",
+  "ko": "아직 압박이 감지되지 않아요. 강하고 빠르게 누르세요.",
+  "zh": "还没检测到按压。用力快速按。"
+ },
+ "Infant": {
+  "es": "Lactante",
+  "fr": "Nourrisson",
+  "hi": "शिशु",
+  "ja": "乳児",
+  "ko": "영아",
+  "zh": "婴儿"
+ },
+ "Keep going": {
+  "es": "Sigue así",
+  "fr": "Continue",
+  "hi": "जारी रखिए",
+  "ja": "続けて",
+  "ko": "계속하세요",
+  "zh": "继续"
+ },
+ "Keep pushing": {
+  "es": "Sigue empujando",
+  "fr": "Continue",
+  "hi": "दबाते रहिए",
+  "ja": "押し続けて",
+  "ko": "계속 누르세요",
+  "zh": "继续按压"
+ },
+ "Keep pushing! Don't stop.": {
+  "es": "¡Sigue empujando! No pares.",
+  "fr": "Continue ! Ne t'arrête pas.",
+  "hi": "दबाते रहिए! रुकिए मत।",
+  "ja": "押し続けて！止めないで。",
+  "ko": "계속 누르세요! 쉬지 마세요.",
+  "zh": "继续按压！不要停。"
+ },
+ "Kneel beside the cushion. Your full upper body should be in view of the camera.": {
+  "es": "Arrodíllate junto al cojín. Todo tu torso debe quedar a la vista de la cámara.",
+  "fr": "Agenouille-toi à côté du coussin. Tout le haut de ton corps doit être visible par la caméra.",
+  "hi": "कुशन के बगल में घुटनों के बल बैठिए। आपके शरीर का पूरा ऊपरी हिस्सा कैमरे में दिखना चाहिए।",
+  "ja": "クッションの横にひざまずいて。上半身全体がカメラに映るようにしてください。",
+  "ko": "쿠션 옆에 무릎을 꿇으세요. 상체 전체가 카메라에 보여야 해요.",
+  "zh": "跪在垫子旁。确保整个上半身都在摄像头画面中。"
+ },
+ "Kneel beside the manikin, side-on to the camera, with the watch on your wrist.": {
+  "es": "Arrodíllate junto al maniquí, de perfil a la cámara, con el reloj en la muñeca.",
+  "fr": "Agenouille-toi à côté du mannequin, de profil par rapport à la caméra, la montre au poignet.",
+  "hi": "मैनिकिन के बगल में घुटनों के बल बैठिए, कैमरे की ओर साइड से, कलाई पर वॉच पहनकर।",
+  "ja": "マネキンの横にひざまずき、カメラに対して横向きになり、手首にウォッチを着けてください。",
+  "ko": "마네킹 옆에 무릎을 꿇고, 카메라에 옆모습이 보이게 하고, 손목에 워치를 착용하세요.",
+  "zh": "跪在模拟人旁，侧身对着摄像头，手腕上戴好手表。"
+ },
+ "Language": {
+  "es": "Idioma",
+  "fr": "Langue",
+  "hi": "भाषा",
+  "ja": "言語",
+  "ko": "언어",
+  "zh": "语言"
+ },
+ "Leaderboard": {
+  "es": "Clasificación",
+  "fr": "Classement",
+  "hi": "लीडरबोर्ड",
+  "ja": "ランキング",
+  "ko": "순위표",
+  "zh": "排行榜"
+ },
+ "Lean forward so your shoulders are above your hands.": {
+  "es": "Inclínate hacia delante para que los hombros queden sobre las manos.",
+  "fr": "Penche-toi en avant pour avoir les épaules au-dessus des mains.",
+  "hi": "आगे झुकिए ताकि आपके कंधे हाथों के ऊपर रहें।",
+  "ja": "前かがみになり、肩を手の真上に。",
+  "ko": "몸을 앞으로 기울여 어깨가 손 바로 위에 오게 하세요.",
+  "zh": "身体前倾，让肩膀位于双手正上方。"
+ },
+ "Let the chest come all the way up.": {
+  "es": "Deja que el pecho suba del todo.",
+  "fr": "Relâche complètement.",
+  "hi": "छाती को पूरा ऊपर आने दीजिए।",
+  "ja": "胸をしっかり戻して。",
+  "ko": "가슴이 완전히 올라오게 하세요.",
+  "zh": "让胸廓完全回弹。"
+ },
+ "Let the chest rise fully": {
+  "es": "Deja que el pecho suba del todo",
+  "fr": "Relâche complètement",
+  "hi": "छाती को पूरा ऊपर आने दीजिए",
+  "ja": "胸をしっかり戻して",
+  "ko": "가슴이 완전히 올라오게",
+  "zh": "让胸廓完全回弹"
+ },
+ "Lift your weight off the chest between pushes, but keep your hands on it.": {
+  "es": "Quita el peso del pecho entre compresiones, pero mantén las manos sobre él.",
+  "fr": "Relâche ton poids entre chaque compression, mais garde les mains sur la poitrine.",
+  "hi": "हर दबाव के बीच छाती से अपना वज़न हटाइए, पर हाथ छाती पर ही रखिए।",
+  "ja": "押すたびに体重を抜いて。手は胸から離さないで。",
+  "ko": "압박 사이에 체중을 빼서 가슴이 완전히 이완되게 하되, 손은 떼지 마세요.",
+  "zh": "每次按压之间放松压力，但双手不要离开胸部。"
+ },
+ "Listening": {
+  "es": "Escuchando",
+  "fr": "À l'écoute",
+  "hi": "सुन रहा है",
+  "ja": "聞いています",
+  "ko": "듣는 중",
+  "zh": "正在聆听"
+ },
+ "Loading the pose model…": {
+  "es": "Cargando el modelo de postura…",
+  "fr": "Chargement du modèle de posture…",
+  "hi": "पोस्चर मॉडल लोड हो रहा है…",
+  "ja": "姿勢モデルを読み込み中…",
+  "ko": "자세 인식 모델 불러오는 중…",
+  "zh": "正在加载姿势模型…"
+ },
+ "Lock your elbows": {
+  "es": "Codos rectos",
+  "fr": "Bras tendus",
+  "hi": "कोहनियाँ सीधी",
+  "ja": "肘を伸ばす",
+  "ko": "팔꿈치 펴기",
+  "zh": "肘部伸直"
+ },
+ "Lock your elbows.": {
+  "es": "Codos rectos.",
+  "fr": "Bras tendus.",
+  "hi": "कोहनियाँ सीधी रखिए।",
+  "ja": "肘を伸ばして。",
+  "ko": "팔꿈치를 곧게 펴세요.",
+  "zh": "肘部伸直。"
+ },
+ "Looking good, keep going.": {
+  "es": "Vas bien, sigue así.",
+  "fr": "C'est bien, continue.",
+  "hi": "अच्छा चल रहा है, जारी रखिए।",
+  "ja": "いい調子です。続けて。",
+  "ko": "좋아요, 계속하세요.",
+  "zh": "很好，继续。"
+ },
+ "Metronome": {
+  "es": "Metrónomo",
+  "fr": "Métronome",
+  "hi": "मेट्रोनोम",
+  "ja": "メトロノーム",
+  "ko": "메트로놈",
+  "zh": "节拍器"
+ },
+ "Name": {
+  "es": "Nombre",
+  "fr": "Nom",
+  "hi": "नाम",
+  "ja": "名前",
+  "ko": "이름",
+  "zh": "姓名"
+ },
+ "Next": {
+  "es": "Siguiente",
+  "fr": "Suivant",
+  "hi": "आगे",
+  "ja": "次へ",
+  "ko": "다음",
+  "zh": "下一步"
+ },
+ "No data yet": {
+  "es": "Aún no hay datos",
+  "fr": "Pas encore de données",
+  "hi": "अभी कोई डेटा नहीं",
+  "ja": "まだデータなし",
+  "ko": "아직 데이터 없음",
+  "zh": "暂无数据"
+ },
+ "No scores yet. Finish a session and save it here.": {
+  "es": "Aún no hay puntuaciones. Termina una sesión y guárdala aquí.",
+  "fr": "Pas encore de scores. Termine une séance et enregistre-la ici.",
+  "hi": "अभी कोई स्कोर नहीं। कोई सेशन पूरा कीजिए और उसे यहाँ सेव कीजिए।",
+  "ja": "まだスコアはありません。セッションを終えたらここに保存してください。",
+  "ko": "아직 점수가 없어요. 세션을 마치고 여기에 저장하세요.",
+  "zh": "暂无得分。结束一次练习后保存到这里。"
+ },
+ "None": {
+  "es": "Ninguna",
+  "fr": "Aucune",
+  "hi": "कोई नहीं",
+  "ja": "なし",
+  "ko": "없음",
+  "zh": "无"
+ },
+ "Not measured": {
+  "es": "Sin medir",
+  "fr": "Non mesuré",
+  "hi": "मापा नहीं गया",
+  "ja": "未測定",
+  "ko": "측정 안 됨",
+  "zh": "未测量"
+ },
+ "Not yet": {
+  "es": "Aún no",
+  "fr": "Pas encore",
+  "hi": "अभी नहीं",
+  "ja": "不合格",
+  "ko": "아직 미달",
+  "zh": "尚未合格"
+ },
+ "On target": {
+  "es": "En objetivo",
+  "fr": "Dans la cible",
+  "hi": "लक्ष्य पर",
+  "ja": "目標どおり",
+  "ko": "목표 범위",
+  "zh": "达标"
+ },
+ "Paramedics can scan this, or you can send it.": {
+  "es": "Los paramédicos pueden escanearlo, o puedes enviarlo.",
+  "fr": "Les secours peuvent le scanner, ou tu peux l'envoyer.",
+  "hi": "पैरामेडिक्स इसे स्कैन कर सकते हैं, या आप इसे भेज सकते हैं।",
+  "ja": "救急隊が読み取るか、送信できます。",
+  "ko": "구급대원이 스캔하거나, 직접 보낼 수 있어요.",
+  "zh": "急救人员可扫描此码，你也可以直接发送。"
+ },
+ "Pass: every measured skill at 80% or better over 2 minutes.": {
+  "es": "Aprobado: cada habilidad medida al 80 % o más durante 2 minutos.",
+  "fr": "Réussite : chaque critère mesuré à 80 % ou plus sur 2 minutes.",
+  "hi": "पास: 2 मिनट में हर मापी गई स्किल 80% या उससे बेहतर।",
+  "ja": "合格基準：2分間、測定した全項目が80%以上。",
+  "ko": "합격 기준: 2분 동안 측정된 모든 항목 80% 이상.",
+  "zh": "合格标准：2 分钟内，每项测量的技能均达到 80% 或以上。"
+ },
+ "Passed": {
+  "es": "Aprobado",
+  "fr": "Réussi",
+  "hi": "पास",
+  "ja": "合格",
+  "ko": "합격",
+  "zh": "合格"
+ },
+ "Patient": {
+  "es": "Paciente",
+  "fr": "Victime",
+  "hi": "मरीज़",
+  "ja": "傷病者",
+  "ko": "환자",
+  "zh": "患者"
+ },
+ "Pauses": {
+  "es": "Pausas",
+  "fr": "Pauses",
+  "hi": "ठहराव",
+  "ja": "中断",
+  "ko": "중단",
+  "zh": "中断次数"
+ },
+ "Pauses over 2 s: %@ (longest %@ s)": {
+  "es": "Pausas de más de 2 s: %@ (la más larga, %@ s)",
+  "fr": "Pauses de plus de 2 s : %@ (la plus longue : %@ s)",
+  "hi": "2 s से लंबे ठहराव: %@ (सबसे लंबा %@ s)",
+  "ja": "2秒超の中断：%@回（最長%@秒）",
+  "ko": "2초 초과 중단: %@회 (최장 %@초)",
+  "zh": "超过 2 秒的中断：%@ 次（最长 %@ 秒）"
+ },
+ "Phone": {
+  "es": "Teléfono",
+  "fr": "Téléphone",
+  "hi": "फ़ोन",
+  "ja": "スマホ",
+  "ko": "휴대폰",
+  "zh": "手机"
+ },
+ "Press C to turn it on. Posture coaching needs a side view.": {
+  "es": "Pulsa C para encenderla. Las indicaciones de postura necesitan una vista de perfil.",
+  "fr": "Appuie sur C pour l'activer. Le coaching de posture nécessite une vue de profil.",
+  "hi": "चालू करने के लिए C दबाइए। पोस्चर कोचिंग के लिए साइड व्यू चाहिए।",
+  "ja": "Cを押してオンにしてください。姿勢のコーチングには横からの映像が必要です。",
+  "ko": "C를 눌러 켜세요. 자세 코칭에는 측면 화면이 필요해요.",
+  "zh": "按 C 开启。姿势指导需要侧面画面。"
+ },
+ "Push harder": {
+  "es": "Más fuerte",
+  "fr": "Plus fort",
+  "hi": "ज़ोर से दबाइए",
+  "ja": "もっと強く",
+  "ko": "더 세게",
+  "zh": "再用力些"
+ },
+ "Push harder.": {
+  "es": "Más fuerte.",
+  "fr": "Appuie plus fort.",
+  "hi": "ज़ोर से दबाइए।",
+  "ja": "もっと強く押して。",
+  "ko": "더 세게 누르세요.",
+  "zh": "用力按。"
+ },
+ "QR code of this report": {
+  "es": "Código QR de este informe",
+  "fr": "Code QR de ce bilan",
+  "hi": "इस रिपोर्ट का QR कोड",
+  "ja": "この報告のQRコード",
+  "ko": "이 보고서의 QR 코드",
+  "zh": "本报告的 QR 码"
+ },
+ "Rate": {
+  "es": "Frecuencia",
+  "fr": "Fréquence",
+  "hi": "रफ़्तार",
+  "ja": "テンポ",
+  "ko": "속도",
+  "zh": "频率"
+ },
+ "Rate %@.": {
+  "es": "Frecuencia %@.",
+  "fr": "Fréquence %@.",
+  "hi": "रफ़्तार %@।",
+  "ja": "テンポ%@。",
+  "ko": "속도 %@.",
+  "zh": "频率 %@。"
+ },
+ "Rate 100–120": {
+  "es": "Frecuencia 100–120",
+  "fr": "Fréquence 100–120",
+  "hi": "रफ़्तार 100–120",
+  "ja": "テンポ 100–120",
+  "ko": "속도 100–120",
+  "zh": "频率 100–120"
+ },
+ "Rate in range": {
+  "es": "Frecuencia en rango",
+  "fr": "Fréquence dans la cible",
+  "hi": "रफ़्तार सही दायरे में",
+  "ja": "テンポ適正",
+  "ko": "적정 속도",
+  "zh": "频率达标"
+ },
+ "Report for paramedics": {
+  "es": "Informe para paramédicos",
+  "fr": "Bilan pour les secours",
+  "hi": "पैरामेडिक्स के लिए रिपोर्ट",
+  "ja": "救急隊への報告",
+  "ko": "구급대원용 보고서",
+  "zh": "急救人员交接报告"
+ },
+ "Rescuer": {
+  "es": "Reanimador",
+  "fr": "Sauveteur",
+  "hi": "बचावकर्ता",
+  "ja": "救助者",
+  "ko": "구조자",
+  "zh": "施救者"
+ },
+ "Rescuer switches": {
+  "es": "Cambios de reanimador",
+  "fr": "Relais",
+  "hi": "बचावकर्ता बदले",
+  "ja": "救助者の交代",
+  "ko": "구조자 교대",
+  "zh": "换人次数"
+ },
+ "Rescuer switches: %@": {
+  "es": "Cambios de reanimador: %@",
+  "fr": "Relais : %@",
+  "hi": "बचावकर्ता बदले: %@",
+  "ja": "救助者の交代：%@回",
+  "ko": "구조자 교대: %@회",
+  "zh": "换人次数：%@"
+ },
+ "Rescuers switched": {
+  "es": "Cambio de reanimador",
+  "fr": "Changement de sauveteur",
+  "hi": "बचावकर्ता बदले गए",
+  "ja": "救助者交代",
+  "ko": "구조자 교대함",
+  "zh": "已换人"
+ },
+ "Result": {
+  "es": "Resultado",
+  "fr": "Résultat",
+  "hi": "नतीजा",
+  "ja": "結果",
+  "ko": "결과",
+  "zh": "结果"
+ },
+ "Resume compressions now.": {
+  "es": "Reanuda las compresiones ya.",
+  "fr": "Reprends les compressions maintenant.",
+  "hi": "अब फिर से कंप्रेशन शुरू कीजिए।",
+  "ja": "今すぐ胸骨圧迫を再開して。",
+  "ko": "지금 가슴압박을 다시 시작하세요.",
+  "zh": "立即继续按压。"
+ },
+ "Save": {
+  "es": "Guardar",
+  "fr": "Enregistrer",
+  "hi": "सेव करें",
+  "ja": "保存",
+  "ko": "저장",
+  "zh": "保存"
+ },
+ "Save to leaderboard": {
+  "es": "Guardar en la clasificación",
+  "fr": "Enregistrer au classement",
+  "hi": "लीडरबोर्ड में सेव करें",
+  "ja": "ランキングに保存",
+  "ko": "순위표에 저장",
+  "zh": "保存到排行榜"
+ },
+ "Saved": {
+  "es": "Guardado",
+  "fr": "Enregistré",
+  "hi": "सेव किया गया",
+  "ja": "保存しました",
+  "ko": "저장됨",
+  "zh": "已保存"
+ },
+ "Saving…": {
+  "es": "Guardando…",
+  "fr": "Enregistrement…",
+  "hi": "सेव हो रहा है…",
+  "ja": "保存中…",
+  "ko": "저장 중…",
+  "zh": "正在保存…"
+ },
+ "Say \"swap\", \"how long\", \"how am I doing\" or \"stop\" while you work.": {
+  "es": "Di \"cambio\", \"cuánto tiempo\", \"cómo voy\" o \"detente\" mientras trabajas.",
+  "fr": "Dis « change », « combien de temps », « comment je fais » ou « stop » pendant les compressions.",
+  "hi": "काम करते समय \"बदलो\", \"कितना समय\", \"कैसा कर रहा हूँ\" या \"रुको\" बोलिए।",
+  "ja": "作業中に「交代」「どのくらい」「調子は？」「ストップ」と話しかけてください。",
+  "ko": "압박하는 동안 \"교대\", \"얼마나\", \"어때\", \"멈춰\"라고 말하세요.",
+  "zh": "按压时可说“换人”、“多久”、“怎么样”或“停止”。"
+ },
+ "Scoring…": {
+  "es": "Puntuando…",
+  "fr": "Calcul du score…",
+  "hi": "स्कोर हो रहा है…",
+  "ja": "採点中…",
+  "ko": "점수 계산 중…",
+  "zh": "正在评分…"
+ },
+ "Server": {
+  "es": "Servidor",
+  "fr": "Serveur",
+  "hi": "सर्वर",
+  "ja": "サーバー",
+  "ko": "서버",
+  "zh": "服务器"
+ },
+ "Session": {
+  "es": "Sesión",
+  "fr": "Séance",
+  "hi": "सेशन",
+  "ja": "セッション",
+  "ko": "세션",
+  "zh": "练习"
+ },
+ "Session summary": {
+  "es": "Resumen de la sesión",
+  "fr": "Résumé de la séance",
+  "hi": "सेशन सारांश",
+  "ja": "セッションのまとめ",
+  "ko": "세션 요약",
+  "zh": "练习总结"
+ },
+ "Shaded band: %@ cm target": {
+  "es": "Banda sombreada: objetivo de %@ cm",
+  "fr": "Bande grisée : cible de %@ cm",
+  "hi": "छायांकित पट्टी: %@ cm लक्ष्य",
+  "ja": "網掛け部分：目標 %@ cm",
+  "ko": "음영 구간: 목표 %@ cm",
+  "zh": "阴影区域：目标 %@ cm"
+ },
+ "Shoulder, elbow and wrist not all visible yet": {
+  "es": "Hombro, codo y muñeca aún no visibles del todo",
+  "fr": "Épaule, coude et poignet pas encore tous visibles",
+  "hi": "कंधा, कोहनी और कलाई अभी पूरी तरह नहीं दिख रहे",
+  "ja": "肩・肘・手首がまだすべて映っていません",
+  "ko": "어깨, 팔꿈치, 손목이 아직 다 보이지 않아요",
+  "zh": "肩、肘、腕尚未全部进入画面"
+ },
+ "Shoulders over hands": {
+  "es": "Hombros sobre las manos",
+  "fr": "Épaules au-dessus des mains",
+  "hi": "कंधे हाथों के ऊपर",
+  "ja": "肩を手の真上に",
+  "ko": "어깨를 손 위로",
+  "zh": "肩在手正上方"
+ },
+ "Shoulders over your hands": {
+  "es": "Hombros sobre las manos",
+  "fr": "Épaules au-dessus des mains",
+  "hi": "कंधे हाथों के ठीक ऊपर",
+  "ja": "肩を手の真上に",
+  "ko": "어깨를 손 위로",
+  "zh": "肩膀对准双手"
+ },
+ "Shoulders over your hands.": {
+  "es": "Hombros sobre las manos.",
+  "fr": "Épaules au-dessus des mains.",
+  "hi": "कंधे हाथों के ठीक ऊपर।",
+  "ja": "肩を手の真上に。",
+  "ko": "어깨를 손 위로 두세요.",
+  "zh": "肩膀对准双手。"
+ },
+ "Skills check": {
+  "es": "Prueba de habilidades",
+  "fr": "Évaluation",
+  "hi": "स्किल टेस्ट",
+  "ja": "スキルチェック",
+  "ko": "술기 평가",
+  "zh": "技能考核"
+ },
+ "Slow down": {
+  "es": "Más despacio",
+  "fr": "Ralentis",
+  "hi": "धीमे",
+  "ja": "ゆっくり",
+  "ko": "천천히",
+  "zh": "放慢"
+ },
+ "Slow down.": {
+  "es": "Más despacio.",
+  "fr": "Ralentis.",
+  "hi": "थोड़ा धीमे।",
+  "ja": "ゆっくり。",
+  "ko": "조금 천천히요.",
+  "zh": "慢一点。"
+ },
+ "Space start or stop · S swap rescuer · W ignore watch · C camera · D details · F full screen": {
+  "es": "Space iniciar o parar · S cambiar de reanimador · W ignorar reloj · C cámara · D detalles · F pantalla completa",
+  "fr": "Space démarrer ou arrêter · S changer de sauveteur · W ignorer la montre · C caméra · D détails · F plein écran",
+  "hi": "Space शुरू या समाप्त · S अगला बचावकर्ता · W वॉच अनदेखी करें · C कैमरा · D विवरण · F फ़ुल स्क्रीन",
+  "ja": "Space 開始/停止 · S 救助者を交代 · W ウォッチを無視 · C カメラ · D 詳細 · F 全画面",
+  "ko": "Space 시작/중지 · S 구조자 교대 · W 워치 무시 · C 카메라 · D 세부 정보 · F 전체 화면",
+  "zh": "Space 开始/停止 · S 更换施救者 · W 忽略手表 · C 摄像头 · D 详情 · F 全屏"
+ },
+ "Start compressions.": {
+  "es": "Empieza las compresiones.",
+  "fr": "Commence les compressions.",
+  "hi": "कंप्रेशन शुरू कीजिए।",
+  "ja": "胸骨圧迫を始めて。",
+  "ko": "가슴압박을 시작하세요.",
+  "zh": "开始按压。"
+ },
+ "Start session": {
+  "es": "Iniciar sesión",
+  "fr": "Commencer la séance",
+  "hi": "सेशन शुरू करें",
+  "ja": "セッション開始",
+  "ko": "세션 시작",
+  "zh": "开始练习"
+ },
+ "Starting camera": {
+  "es": "Iniciando cámara",
+  "fr": "Démarrage de la caméra",
+  "hi": "कैमरा शुरू हो रहा है",
+  "ja": "カメラを起動中",
+  "ko": "카메라 시작 중",
+  "zh": "正在启动摄像头"
+ },
+ "Stop": {
+  "es": "Detente",
+  "fr": "Stop",
+  "hi": "रुको",
+  "ja": "ストップ",
+  "ko": "멈춰",
+  "zh": "停止"
+ },
+ "Stop. Well done.": {
+  "es": "Para. Bien hecho.",
+  "fr": "Stop. Bien joué.",
+  "hi": "रुकिए। बहुत बढ़िया।",
+  "ja": "ストップ。よくできました。",
+  "ko": "중지할게요. 잘하셨어요.",
+  "zh": "结束。做得好。"
+ },
+ "Swap": {
+  "es": "Cambio",
+  "fr": "Change",
+  "hi": "बदलो",
+  "ja": "交代",
+  "ko": "교대",
+  "zh": "换人"
+ },
+ "Switch now. Next rescuer, start compressions.": {
+  "es": "Cambio ya. Siguiente reanimador, empieza las compresiones.",
+  "fr": "Changez maintenant. Sauveteur suivant, commence les compressions.",
+  "hi": "अभी बदलिए। अगले बचावकर्ता, कंप्रेशन शुरू कीजिए।",
+  "ja": "交代して。次の人、胸骨圧迫を始めて。",
+  "ko": "지금 교대하세요. 다음 구조자는 가슴압박을 시작하세요.",
+  "zh": "现在换人。下一位施救者，开始按压。"
+ },
+ "Switch rescuers": {
+  "es": "Cambio de reanimador",
+  "fr": "Changez de sauveteur",
+  "hi": "बचावकर्ता बदलिए",
+  "ja": "救助者を交代",
+  "ko": "구조자 교대",
+  "zh": "换人"
+ },
+ "Switch rescuers now.": {
+  "es": "Cambien de reanimador ya.",
+  "fr": "Changez de sauveteur, maintenant.",
+  "hi": "अब बचावकर्ता बदलिए।",
+  "ja": "今すぐ交代して。",
+  "ko": "지금 구조자를 교대하세요.",
+  "zh": "现在换人。"
+ },
+ "Switch soon": {
+  "es": "Cambio pronto",
+  "fr": "Relais bientôt",
+  "hi": "जल्द बदलिए",
+  "ja": "まもなく交代",
+  "ko": "곧 교대",
+  "zh": "准备换人"
+ },
+ "Target %@": {
+  "es": "Objetivo %@",
+  "fr": "Cible %@",
+  "hi": "लक्ष्य %@",
+  "ja": "目標 %@",
+  "ko": "목표 %@",
+  "zh": "目标 %@"
+ },
+ "Tilt the head back, lift the chin, 2 breaths of 1 second each. Then straight back to compressions.": {
+  "es": "Inclina la cabeza hacia atrás, eleva el mentón y da 2 ventilaciones de 1 segundo cada una. Luego vuelve enseguida a las compresiones.",
+  "fr": "Bascule la tête en arrière, élève le menton, 2 insufflations d'une seconde chacune. Puis reprends aussitôt les compressions.",
+  "hi": "सिर पीछे झुकाइए, ठुड्डी ऊपर उठाइए, 1-1 सेकंड की 2 कृत्रिम साँसें दीजिए। फिर तुरंत कंप्रेशन पर लौटिए।",
+  "ja": "頭部後屈あご先挙上をして、1秒かけて人工呼吸を2回。すぐに胸骨圧迫に戻って。",
+  "ko": "머리 젖히고 턱 들기를 한 뒤, 1초씩 2회 인공호흡하세요. 그다음 바로 가슴압박으로 돌아가세요.",
+  "zh": "仰头提颏，做 2 次人工呼吸，每次 1 秒。然后立即继续按压。"
+ },
+ "Too deep": {
+  "es": "Demasiado profundo",
+  "fr": "Trop profond",
+  "hi": "बहुत गहरा",
+  "ja": "深すぎ",
+  "ko": "너무 깊음",
+  "zh": "太深"
+ },
+ "Too fast": {
+  "es": "Muy rápido",
+  "fr": "Trop rapide",
+  "hi": "बहुत तेज़",
+  "ja": "速すぎ",
+  "ko": "너무 빠름",
+  "zh": "太快"
+ },
+ "Too shallow": {
+  "es": "Poco profundo",
+  "fr": "Pas assez profond",
+  "hi": "बहुत कम गहरा",
+  "ja": "浅すぎ",
+  "ko": "너무 얕음",
+  "zh": "太浅"
+ },
+ "Too slow": {
+  "es": "Muy lento",
+  "fr": "Trop lent",
+  "hi": "बहुत धीमा",
+  "ja": "遅すぎ",
+  "ko": "너무 느림",
+  "zh": "太慢"
+ },
+ "Top 10": {
+  "es": "Top 10",
+  "fr": "Top 10",
+  "hi": "टॉप 10",
+  "ja": "トップ10",
+  "ko": "상위 10명",
+  "zh": "前 10 名"
+ },
+ "Training tool, not a medical device.": {
+  "es": "Herramienta de entrenamiento, no un dispositivo médico.",
+  "fr": "Outil d'entraînement, pas un dispositif médical.",
+  "hi": "ट्रेनिंग टूल, मेडिकल डिवाइस नहीं।",
+  "ja": "トレーニング用のツールで、医療機器ではありません。",
+  "ko": "훈련용 도구이며 의료기기가 아닙니다.",
+  "zh": "本应用为培训工具，并非医疗器械。"
+ },
+ "Try again": {
+  "es": "Intentar de nuevo",
+  "fr": "Réessayer",
+  "hi": "फिर से कोशिश करें",
+  "ja": "もう一度",
+  "ko": "다시 시도",
+  "zh": "重试"
+ },
+ "Unknown error": {
+  "es": "Error desconocido",
+  "fr": "Erreur inconnue",
+  "hi": "अज्ञात त्रुटि",
+  "ja": "不明なエラー",
+  "ko": "알 수 없는 오류",
+  "zh": "未知错误"
+ },
+ "Voice coach": {
+  "es": "Instrucciones por voz",
+  "fr": "Coach vocal",
+  "hi": "वॉइस कोच",
+  "ja": "音声コーチ",
+  "ko": "음성 코치",
+  "zh": "语音指导"
+ },
+ "Watch": {
+  "es": "Reloj",
+  "fr": "Montre",
+  "hi": "वॉच",
+  "ja": "ウォッチ",
+  "ko": "워치",
+  "zh": "手表"
+ },
+ "Watch depth check": {
+  "es": "Comprobación de profundidad del reloj",
+  "fr": "Contrôle de profondeur de la montre",
+  "hi": "वॉच गहराई जाँच",
+  "ja": "ウォッチの深さチェック",
+  "ko": "워치 깊이 확인",
+  "zh": "手表深度检查"
+ },
+ "Watch depth scale": {
+  "es": "Escala de profundidad del reloj",
+  "fr": "Échelle de profondeur de la montre",
+  "hi": "वॉच गहराई स्केल",
+  "ja": "ウォッチの深さ係数",
+  "ko": "워치 깊이 배율",
+  "zh": "手表深度系数"
+ },
+ "Watch depth ×%@ · Camera depth %@": {
+  "es": "Profundidad del reloj ×%@ · Profundidad de la cámara %@",
+  "fr": "Profondeur montre ×%@ · Profondeur caméra %@",
+  "hi": "वॉच गहराई ×%@ · कैमरा गहराई %@",
+  "ja": "ウォッチの深さ ×%@ · カメラの深さ %@",
+  "ko": "워치 깊이 ×%@ · 카메라 깊이 %@",
+  "zh": "手表深度 ×%@ · 摄像头深度 %@"
+ },
+ "Watch ignored": {
+  "es": "Reloj ignorado",
+  "fr": "Montre ignorée",
+  "hi": "वॉच अनदेखी",
+  "ja": "ウォッチを無視中",
+  "ko": "워치 무시됨",
+  "zh": "已忽略手表"
+ },
+ "Watch not streaming (camera only)": {
+  "es": "El reloj no transmite (solo cámara)",
+  "fr": "Montre sans transmission (caméra seule)",
+  "hi": "वॉच डेटा नहीं भेज रही (सिर्फ़ कैमरा)",
+  "ja": "ウォッチのデータなし（カメラのみ）",
+  "ko": "워치 데이터 없음 (카메라만)",
+  "zh": "手表未传输数据（仅摄像头）"
+ },
+ "Watch streaming": {
+  "es": "Reloj transmitiendo",
+  "fr": "Montre en transmission",
+  "hi": "वॉच डेटा भेज रही है",
+  "ja": "ウォッチのデータ受信中",
+  "ko": "워치 데이터 수신 중",
+  "zh": "手表数据传输中"
+ },
+ "Who's practicing?": {
+  "es": "¿Quién practica?",
+  "fr": "Qui s'entraîne ?",
+  "hi": "कौन अभ्यास कर रहा है?",
+  "ja": "誰が練習しますか？",
+  "ko": "누가 연습하나요?",
+  "zh": "谁在练习？"
+ },
+ "You're tiring. Get ready to switch rescuers.": {
+  "es": "Te estás cansando. Prepárate para cambiar de reanimador.",
+  "fr": "Tu fatigues. Préparez-vous à changer de sauveteur.",
+  "hi": "आप थक रहे हैं। बचावकर्ता बदलने के लिए तैयार हो जाइए।",
+  "ja": "疲れてきています。交代の準備を。",
+  "ko": "지치고 있어요. 구조자 교대를 준비하세요.",
+  "zh": "你累了。准备换人。"
+ },
+ "Your name": {
+  "es": "Tu nombre",
+  "fr": "Ton nom",
+  "hi": "आपका नाम",
+  "ja": "あなたの名前",
+  "ko": "이름 입력",
+  "zh": "你的名字"
+ },
+ "calibrated": {
+  "es": "calibrada",
+  "fr": "calibrée",
+  "hi": "कैलिब्रेटेड",
+  "ja": "補正済み",
+  "ko": "보정됨",
+  "zh": "已校准"
+ },
+ "connected": {
+  "es": "conectado",
+  "fr": "connectée",
+  "hi": "कनेक्टेड",
+  "ja": "接続済み",
+  "ko": "연결됨",
+  "zh": "已连接"
+ },
+ "estimated": {
+  "es": "estimada",
+  "fr": "estimée",
+  "hi": "अनुमानित",
+  "ja": "推定",
+  "ko": "추정",
+  "zh": "估算"
+ },
+ "fix this": {
+  "es": "corrige esto",
+  "fr": "à corriger",
+  "hi": "इसे सुधारिए",
+  "ja": "要修正",
+  "ko": "고쳐야 함",
+  "zh": "需纠正"
+ },
+ "good": {
+  "es": "bien",
+  "fr": "bien",
+  "hi": "अच्छा",
+  "ja": "良好",
+  "ko": "좋음",
+  "zh": "良好"
+ },
+ "not connected": {
+  "es": "no conectado",
+  "fr": "non connectée",
+  "hi": "कनेक्ट नहीं",
+  "ja": "未接続",
+  "ko": "연결 안 됨",
+  "zh": "未连接"
+ },
+ "partly connected": {
+  "es": "conectado en parte",
+  "fr": "partiellement connecté",
+  "hi": "आंशिक रूप से कनेक्टेड",
+  "ja": "一部接続済み",
+  "ko": "일부 연결됨",
+  "zh": "部分连接"
+ }
+}

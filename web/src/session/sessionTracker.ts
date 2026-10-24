@@ -2,6 +2,7 @@
 // camera-graded compressions, and posture percentages. Posted to the backend after stop,
 // which merges them with the watch metrics and computes the score.
 import { SESSION, TARGETS } from "../config";
+import { depthMax, depthMin } from "../patient";
 import type { PostureFrame } from "../pose/postureMetrics";
 
 export interface CameraMetrics {
@@ -36,6 +37,8 @@ export class SessionTracker {
   private pauseCount = 0;
   private longestPause = 0;
   private handsOff = 0;
+  /** Set when rescue breaths start: the gap before the next compression is planned. */
+  plannedPause = false;
 
   private rateOk: boolean[] = [];
   private depthOk: boolean[] = [];
@@ -64,7 +67,9 @@ export class SessionTracker {
     this.settle(t);
     this.clockStart ??= t;
     const gap = t - (this.lastCompression ?? this.clockStart);
-    if (gap > TARGETS.pause_threshold_s) {
+    if (this.plannedPause) {
+      this.plannedPause = false;
+    } else if (gap > TARGETS.pause_threshold_s) {
       this.pauseCount++;
       this.longestPause = Math.max(this.longestPause, gap);
       this.handsOff += gap;
@@ -82,7 +87,7 @@ export class SessionTracker {
     }
     if (depthCm !== null) {
       this.depths.push(depthCm);
-      this.depthOk.push(depthCm >= TARGETS.depth_min_cm && depthCm <= TARGETS.depth_max_cm);
+      this.depthOk.push(depthCm >= depthMin() && depthCm <= depthMax());
       if (this.clockStart !== null) this.series.push([round(t - this.clockStart), round(depthCm)]);
     }
   }

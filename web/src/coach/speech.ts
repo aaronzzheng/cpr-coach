@@ -1,20 +1,33 @@
-// Web Speech API wrapper: one English voice, interrupts only for a higher-priority line, mutable.
+// Web Speech API wrapper: one voice in the dashboard's language, interrupts only for a
+// higher-priority line, mutable. Exposes an echo window so voice commands ignore the coach.
 import { SPEECH } from "../config";
+import { LANG_INFO, lang } from "../i18n";
 
 export class Speech {
   muted = false;
   private voice: SpeechSynthesisVoice | null = null;
   private currentPriority: number | null = null;
+  private lastEnd = 0;
 
   constructor() {
     if (typeof speechSynthesis === "undefined") return;
-    const pick = () => {
-      const voices = speechSynthesis.getVoices().filter((v) => v.lang.startsWith(SPEECH.lang));
-      this.voice =
-        voices.find((v) => v.localService && v.lang === "en-US") ?? voices.find((v) => v.localService) ?? voices[0] ?? null;
-    };
-    pick();
-    speechSynthesis.addEventListener("voiceschanged", pick);
+    this.pick();
+    speechSynthesis.addEventListener("voiceschanged", () => this.pick());
+  }
+
+  /** Re-pick the voice for the current language. */
+  pick(): void {
+    if (typeof speechSynthesis === "undefined") return;
+    const want = LANG_INFO[lang()].bcp47;
+    const prefix = want.slice(0, 2);
+    const voices = speechSynthesis.getVoices().filter((v) => v.lang.replace("_", "-").startsWith(prefix));
+    this.voice =
+      voices.find((v) => v.localService && v.lang.replace("_", "-") === want) ?? voices.find((v) => v.localService) ?? voices[0] ?? null;
+  }
+
+  /** The coach is talking, or just stopped (recognition lags speech). */
+  get echoWindow(): boolean {
+    return (typeof speechSynthesis !== "undefined" && speechSynthesis.speaking) || performance.now() - this.lastEnd < 1200;
   }
 
   /** Lower `priority` number = more important. */
@@ -26,8 +39,12 @@ export class Speech {
     }
     const u = new SpeechSynthesisUtterance(text);
     if (this.voice) u.voice = this.voice;
-    u.rate = SPEECH.rate;
-    u.onend = () => (this.currentPriority = null);
+    u.lang = LANG_INFO[lang()].bcp47;
+    u.rate = lang() === "en" ? SPEECH.rate : 1;
+    u.onend = () => {
+      this.currentPriority = null;
+      this.lastEnd = performance.now();
+    };
     this.currentPriority = priority;
     speechSynthesis.speak(u);
   }

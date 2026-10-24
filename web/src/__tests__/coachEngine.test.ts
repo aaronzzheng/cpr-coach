@@ -21,6 +21,7 @@ function live(over: Partial<{ cpm: number | null; depth: number | null; age: num
     swapRecommended: false,
     fatigueScore: null,
     swapInS: null,
+    breathPause: false,
   };
 }
 

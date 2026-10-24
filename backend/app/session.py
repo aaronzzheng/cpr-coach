@@ -8,7 +8,12 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from .config import MIN_WATCH_COMPRESSIONS, SESSION_CLOCK_GRACE_S, TARGETS
+from .config import (
+    MIN_WATCH_COMPRESSIONS,
+    PATIENT_DEPTH_CM,
+    SESSION_CLOCK_GRACE_S,
+    TARGETS,
+)
 
 
 def grade_letter(score: float) -> str:
@@ -96,11 +101,15 @@ class Session:
     hands_off: float = 0.0
     records: list[CompressionRecord] = field(default_factory=list)
     fatigue_at: float | None = None
+    patient: str = "adult"
+    # Set when rescue breaths start (30:2): the gap before the next compression is planned.
+    planned_pause: bool = False
 
-    def start(self, now: float, name: str = "") -> None:
+    def start(self, now: float, name: str = "", patient: str = "adult") -> None:
         self.__init__()
         self.id = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
         self.name = name
+        self.patient = patient if patient in PATIENT_DEPTH_CM else "adult"
         self.status = "running"
         self.started_at = now
 
@@ -111,7 +120,11 @@ class Session:
             self.status = "summary"
 
     def _settle_clock(self, now: float) -> None:
-        if self.clock_start is None and self.started_at is not None and now - self.started_at >= SESSION_CLOCK_GRACE_S:
+        if (
+            self.clock_start is None
+            and self.started_at is not None
+            and now - self.started_at >= SESSION_CLOCK_GRACE_S
+        ):
             self.clock_start = self.started_at + SESSION_CLOCK_GRACE_S
 
     def on_compression(self, t: float) -> None:
@@ -120,16 +133,27 @@ class Session:
         self._settle_clock(t)
         if self.clock_start is None:
             self.clock_start = t
-        ref = self.last_compression if self.last_compression is not None else self.clock_start
+        ref = (
+            self.last_compression
+            if self.last_compression is not None
+            else self.clock_start
+        )
         gap = t - ref
-        if gap > TARGETS["pause_threshold_s"]:
+        if self.planned_pause:
+            self.planned_pause = False
+        elif gap > TARGETS["pause_threshold_s"]:
             self.pause_count += 1
             self.longest_pause = max(self.longest_pause, gap)
             self.hands_off += gap
         self.last_compression = t
 
     def on_graded(
-        self, t: float, inst_rate_cpm: float | None, rate_ok: bool, depth_cm: float | None, depth_ok: bool | None
+        self,
+        t: float,
+        inst_rate_cpm: float | None,
+        rate_ok: bool,
+        depth_cm: float | None,
+        depth_ok: bool | None,
     ) -> None:
         if self.status != "running" or self.clock_start is None:
             return
@@ -145,7 +169,11 @@ class Session:
 
     def mark_fatigue(self, now: float) -> None:
         """Remember the first moment a swap was recommended, for the summary."""
-        if self.status == "running" and self.fatigue_at is None and self.clock_start is not None:
+        if (
+            self.status == "running"
+            and self.fatigue_at is None
+            and self.clock_start is not None
+        ):
             self.fatigue_at = now - self.clock_start
 
     def elapsed(self, now: float) -> float:
@@ -155,18 +183,30 @@ class Session:
         return max(0.0, end - self.clock_start) if self.clock_start is not None else 0.0
 
     def pauses(self, now: float) -> Pauses:
-        p = Pauses(count=self.pause_count, longest_s=self.longest_pause, hands_off_s=self.hands_off)
+        p = Pauses(
+            count=self.pause_count,
+            longest_s=self.longest_pause,
+            hands_off_s=self.hands_off,
+        )
         elapsed = self.elapsed(now)
         if self.status == "running" and self.clock_start is not None:
-            ref = self.last_compression if self.last_compression is not None else self.clock_start
+            ref = (
+                self.last_compression
+                if self.last_compression is not None
+                else self.clock_start
+            )
             gap = now - ref
-            if gap > TARGETS["pause_threshold_s"]:
+            if gap > TARGETS["pause_threshold_s"] and not self.planned_pause:
                 p.in_pause = True
                 p.pause_elapsed_s = gap
                 p.hands_off_s += gap
         if elapsed > 0:
             p.ccf = max(0.0, (elapsed - p.hands_off_s) / elapsed)
         return p
+
+    @property
+    def depth_range(self) -> tuple[float, float]:
+        return PATIENT_DEPTH_CM[self.patient]
 
     def rate_pct(self) -> float | None:
         rs = [r.rate_ok for r in self.records if r.rate_ok is not None]
@@ -193,7 +233,11 @@ class Session:
             "longest_pause_s": p.longest_s,
             "avg_rate_cpm": statistics.median(rates) if rates else None,
             "avg_depth_cm": statistics.median(depths) if depths else None,
-            "depth_series": [(round(r.t, 2), round(r.depth_cm, 2)) for r in self.records if r.depth_cm is not None],
+            "depth_series": [
+                (round(r.t, 2), round(r.depth_cm, 2))
+                for r in self.records
+                if r.depth_cm is not None
+            ],
             "fatigue_at_s": self.fatigue_at,
         }
 
@@ -201,9 +245,13 @@ class Session:
 def build_summary(watch: dict, cam: CameraMetrics, date: str) -> dict:
     """Merge watch and camera metrics into the final summary. The watch is preferred for
     rate/depth/CCF when it saw enough compressions; posture always comes from the camera."""
-    use_watch = watch["compressions"] >= MIN_WATCH_COMPRESSIONS and not cam.prefer_camera
+    use_watch = (
+        watch["compressions"] >= MIN_WATCH_COMPRESSIONS and not cam.prefer_camera
+    )
     src = watch if use_watch else cam.model_dump()
-    score = compute_score(src["rate_pct"], src["depth_pct"], src["ccf"], cam.elbow_pct, cam.align_pct)
+    score = compute_score(
+        src["rate_pct"], src["depth_pct"], src["ccf"], cam.elbow_pct, cam.align_pct
+    )
     return {
         "session_id": watch["session_id"],
         "name": watch["name"] or "Anonymous",
