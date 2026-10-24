@@ -1,40 +1,98 @@
 :root {
   --bg: #0b0f14;
   --panel: #141a22;
+  --panel-2: #1e2630;
   --text: #e8edf3;
   --muted: #7d8a99;
   --green: #22c55e;
   --amber: #f59e0b;
   --red: #ef4444;
   --purple: #a855f7;
+  --blue: #38bdf8;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
 
-.app { display: flex; flex-direction: column; height: 100%; }
-
-.topbar {
-  display: flex; align-items: center; gap: 32px;
-  padding: 16px 32px; background: var(--panel);
+.app {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) 110px auto auto auto;
+  gap: 12px;
+  height: 100%;
+  padding-bottom: 4px;
 }
+
+/* Header */
+.topbar { display: flex; align-items: center; gap: 28px; padding: 14px 28px; background: var(--panel); }
 .topbar h1 { margin: 0; font-size: 28px; letter-spacing: 0.08em; }
-.timer { margin-left: auto; font-size: 28px; font-variant-numeric: tabular-nums; }
+.timer { margin-left: auto; font-size: 32px; font-variant-numeric: tabular-nums; }
+.timer-label { font-size: 16px; color: var(--muted); margin-right: 8px; }
+.toggles { display: flex; gap: 16px; font-size: 16px; color: var(--muted); }
+.toggles .on { color: var(--text); }
 
 .pills { display: flex; gap: 12px; }
-.pill {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 6px 14px; border-radius: 999px; font-size: 18px;
-  background: #1e2630; color: var(--muted);
-}
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; font-size: 18px; background: var(--panel-2); color: var(--muted); }
 .pill .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
-.pill.on { color: var(--text); }
+.pill.on, .pill.warn { color: var(--text); }
 .pill.on .dot { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.pill.warn .dot { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
 
-.placeholder {
-  flex: 1; display: grid; place-items: center;
-  font-size: 32px; color: var(--muted);
-}
+/* Camera + metrics */
+.top { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 12px; padding: 0 28px; min-height: 0; }
+.camera-wrap { position: relative; min-height: 0; }
+.camera { position: relative; height: 100%; background: #000; border-radius: 12px; overflow: hidden; }
+.camera video, .camera canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.camera-msg { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; color: var(--muted); text-align: center; padding: 24px; }
+.countdown { position: absolute; inset: 0; display: grid; place-items: center; font-size: 200px; font-weight: 800; background: rgba(0,0,0,0.45); border-radius: 12px; }
 
-.footer { padding: 8px 32px; font-size: 14px; color: var(--muted); text-align: center; }
+.metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-height: 0; }
+.metric { background: var(--panel); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; align-items: center; min-height: 0; }
+.metric-label { font-size: 22px; letter-spacing: 0.15em; color: var(--muted); align-self: flex-start; }
+.metric-source { font-size: 16px; color: var(--muted); }
+
+.gauge { width: 100%; flex: 1; min-height: 0; }
+.gauge-track { fill: none; stroke: var(--panel-2); stroke-width: 22; stroke-linecap: round; }
+.gauge-zone { fill: none; stroke: var(--green); stroke-width: 22; opacity: 0.55; }
+.gauge-needle { stroke: var(--text); stroke-width: 6; stroke-linecap: round; transition: all 0.2s ease-out; }
+.gauge-hub { fill: var(--text); }
+.gauge-value { font-size: 72px; font-weight: 800; text-anchor: middle; fill: var(--text); font-variant-numeric: tabular-nums; }
+.gauge-unit { font-size: 22px; text-anchor: middle; fill: var(--muted); }
+.gauge-value.good { fill: var(--green); }
+.gauge-value.bad { fill: var(--amber); }
+
+.depth { flex: 1; display: flex; align-items: center; gap: 24px; min-height: 0; width: 100%; justify-content: center; padding: 12px 0; }
+.depth-bar { position: relative; width: 64px; height: 100%; max-height: 360px; background: var(--panel-2); border-radius: 10px; }
+.depth-band { position: absolute; left: 0; right: 0; background: rgba(34,197,94,0.3); border-top: 2px solid var(--green); border-bottom: 2px solid var(--green); }
+.depth-fill { position: absolute; left: 10px; right: 10px; top: 0; background: var(--blue); border-radius: 0 0 6px 6px; transition: height 0.2s ease-out; }
+.depth-fill.good { background: var(--green); }
+.depth-fill.bad { background: var(--amber); }
+.depth-tick { position: absolute; left: 72px; transform: translateY(50%); font-size: 16px; color: var(--muted); }
+.depth-value { font-size: 60px; font-weight: 800; font-variant-numeric: tabular-nums; margin-left: 32px; }
+.depth-value.good { color: var(--green); }
+.depth-value.bad { color: var(--amber); }
+.depth-unit { font-size: 24px; color: var(--muted); font-weight: 400; }
+
+/* Waveform */
+.wave-row { position: relative; margin: 0 28px; background: var(--panel); border-radius: 12px; overflow: hidden; }
+.waveform { width: 100%; height: 100%; display: block; }
+.wave-label { position: absolute; top: 8px; left: 14px; font-size: 14px; color: var(--muted); }
+
+/* Checklist */
+.checklist { display: flex; gap: 36px; align-items: center; padding: 10px 28px; margin: 0 28px; background: var(--panel); border-radius: 12px; font-size: 24px; }
+.check { display: inline-flex; gap: 10px; align-items: center; }
+.check.na { color: var(--muted); }
+.check.warn { color: var(--amber); }
+.check.hr { margin-left: auto; }
+
+/* Coach banner */
+.banner { margin: 0 28px; padding: 18px; border-radius: 12px; text-align: center; font-size: 48px; font-weight: 800; letter-spacing: 0.04em; transition: background 0.2s; }
+.banner.idle { background: var(--panel); color: var(--muted); font-weight: 600; font-size: 32px; }
+.banner.red { background: var(--red); }
+.banner.amber { background: var(--amber); color: #1a1205; }
+.banner.purple { background: var(--purple); }
+.banner.green { background: var(--green); color: #04150a; }
+
+.footer { padding: 4px 28px; font-size: 14px; color: var(--muted); text-align: center; }
+
+.debug { position: fixed; right: 16px; bottom: 16px; margin: 0; padding: 12px 16px; background: rgba(0,0,0,0.85); border: 1px solid var(--panel-2); border-radius: 8px; font-size: 13px; line-height: 1.5; color: #a7f3d0; }

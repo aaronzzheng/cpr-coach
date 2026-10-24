@@ -7,9 +7,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "node scripts/copy-wasm.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "1.1.1",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },
@@ -18,6 +21,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
     "typescript": "7.0.2",
-    "vite": "8.3.5"
+    "vite": "8.3.5",
+    "vitest": "4.1.12"
   }
 }

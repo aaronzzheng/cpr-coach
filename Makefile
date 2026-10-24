@@ -26,7 +26,7 @@ sim:
 
 test:
 	cd backend && .venv/bin/pytest -q
-	cd web && npm run typecheck
+	cd web && npm run typecheck && npm test
 
 lint:
 	cd backend && .venv/bin/ruff check app tests tools
