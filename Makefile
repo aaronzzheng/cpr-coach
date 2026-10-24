@@ -62,8 +62,9 @@ build:
 
 # Typecheck the Swift sources against the watchOS 10 / iOS 17 SDKs (no Xcode project needed).
 swift-check:
-	xcrun --sdk watchos swiftc -typecheck -parse-as-library -swift-version 6 -target arm64_32-apple-watchos10.0 $$(find apple/Sources/Watch -name '*.swift')
-	xcrun --sdk iphoneos swiftc -typecheck -parse-as-library -swift-version 6 -target arm64-apple-ios17.0 $$(find apple/Sources/iOS -name '*.swift')
+	xcrun --sdk watchos swiftc -typecheck -parse-as-library -swift-version 6 -target arm64_32-apple-watchos10.0 $$(find apple/Sources/Watch apple/Sources/Core -name '*.swift')
+	xcrun --sdk iphoneos swiftc -typecheck -parse-as-library -swift-version 6 -target arm64-apple-ios17.0 $$(find apple/Sources/iOS apple/Sources/Core apple/Sources/Shared -name '*.swift')
+	xcrun --sdk iphoneos swiftc -typecheck -parse-as-library -swift-version 6 -target arm64-apple-ios17.0 $$(find apple/Sources/Widgets apple/Sources/Shared -name '*.swift')
 	@echo "Swift sources typecheck OK"
 
 # Generate apple/CPRCoach.xcodeproj from apple/project.yml (brew install xcodegen).

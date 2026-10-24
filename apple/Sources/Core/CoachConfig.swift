@@ -6,8 +6,9 @@ nonisolated enum Targets {
     static let rateMin = 100.0
     static let rateMax = 120.0
     static let rateTarget = 110
-    static let depthMin = 5.0
-    static let depthMax = 6.0
+    /// Depth targets follow who is being resuscitated (AHA: about 5 cm adult and child, 4 cm infant).
+    static var depthMin: Double { PatientProfile.current.depthRange.0 }
+    static var depthMax: Double { PatientProfile.current.depthRange.1 }
     static let pauseThreshold = 2.0
     static let ccfTarget = 0.80
     static let rescuerSwap = 120.0
@@ -57,7 +58,7 @@ nonisolated enum CoachConfig {
     static let ruleCooldown = 8.0
     static let warmup = 5.0
     static let noCompression = 2.0
-    static let tooDeepCm = 6.5
+    static var tooDeepCm: Double { PatientProfile.current.tooDeepCm }
     static let praiseAfter = 10.0
     static let praiseCooldown = 15.0
     static let watchFresh = 3.0
@@ -90,4 +91,44 @@ nonisolated enum RecoilConfig {
     static let restPercentile = 0.15    // of top heights, highest first
     static let maxShortfallCm = 1.0     // a top this far below rest counts as leaning
     static let window = 8               // compressions; leaning on half of them triggers the cue
+}
+
+/// Adult, child or infant: same rate, different depth and hand position.
+nonisolated enum PatientProfile: String, CaseIterable, Identifiable, Sendable {
+    case adult, child, infant
+    var id: String { rawValue }
+
+    var depthRange: (Double, Double) {
+        switch self {
+        case .adult: (5.0, 6.0)
+        case .child: (4.5, 5.5)
+        case .infant: (3.5, 4.5)
+        }
+    }
+
+    var tooDeepCm: Double {
+        switch self {
+        case .adult: 6.5
+        case .child: 6.0
+        case .infant: 5.0
+        }
+    }
+
+    /// Read from anywhere (targets are nonisolated); only written on the main actor.
+    nonisolated(unsafe) static var current: PatientProfile = .adult
+}
+
+nonisolated enum ForecastConfig {
+    static let windowS = 60.0          // seconds of per-compression depths in the trend
+    static let minPoints = 40
+    static let minSpanS = 25.0
+    static let horizonS = 40.0         // warn when the trend crosses the limit within this
+    static let significance = 2.5      // slope must be this many standard errors below zero
+    static let holdS = 5.0             // and the forecast must hold this long before warning
+}
+
+nonisolated enum BreathConfig {
+    static let compressions = 30       // 30:2
+    static let maxPauseS = 10.0        // breaths should take under 10 s
+    static let resumeAfterS = 1.5      // a compression this long after the prompt ends the pause
 }

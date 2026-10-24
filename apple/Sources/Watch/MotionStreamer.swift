@@ -16,6 +16,8 @@ nonisolated final class MotionStreamer: @unchecked Sendable {
         return q
     }()
     private let link: PhoneLink
+    /// Every packet also goes to the on-watch coach (called on the motion queue).
+    var onPacket: (@Sendable (Data) -> Void)?
 
     // Confined to `queue`.
     private var encoder = CPRPacketEncoder()
@@ -53,5 +55,6 @@ nonisolated final class MotionStreamer: @unchecked Sendable {
         let packet = encoder.flush(seq: seq)
         seq &+= 1  // increments even when dropped, so the backend sees the gap
         link.sendIMU(packet, samples: Self.batchSize)
+        onPacket?(packet)
     }
 }

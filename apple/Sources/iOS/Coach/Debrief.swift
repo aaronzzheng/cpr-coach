@@ -45,12 +45,12 @@ nonisolated func debriefFindings(_ s: SessionSummary) -> [DebriefFinding] {
     }
     if let d = s.avgDepth, !s.depthEstimated, d < Targets.depthMin {
         out.append((1, DebriefFinding(
-            fact: Phrase(format: "Average depth was %@ cm, under the 5 cm target.", args: [cm(d)]),
+            fact: Phrase(format: "Average depth was %@ cm, under the %@ cm target.", args: [cm(d), cm(Targets.depthMin)]),
             fix: Phrase(format: "Lock your elbows and push with your body weight from the shoulders, not your arms."))))
     } else if let d = s.avgDepth, !s.depthEstimated, d > Targets.depthMax {
         out.append((2, DebriefFinding(
-            fact: Phrase(format: "Average depth was %@ cm, deeper than the 6 cm limit.", args: [cm(d)]),
-            fix: Phrase(format: "Ease off slightly; going past 6 cm raises the risk of injury without helping blood flow."))))
+            fact: Phrase(format: "Average depth was %@ cm, deeper than the %@ cm limit.", args: [cm(d), cm(Targets.depthMax)]),
+            fix: Phrase(format: "Ease off slightly; going deeper raises the risk of injury without helping blood flow."))))
     }
     if let r = s.avgRate, r < Targets.rateMin {
         out.append((1, DebriefFinding(

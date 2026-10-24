@@ -8,7 +8,7 @@ import UIKit
 @Observable
 final class CoachModel {
     enum Phase: Equatable { case setup, countdown(Int), running, summary }
-    enum Mode: Equatable { case training, emergency }
+    enum Mode: Equatable { case training, emergency, skillsCheck }
     /// The spoken emergency check before compressions: responsive? breathing normally?
     enum TriageStep: Equatable { case responsive, breathing, monitor, recovery }
 
@@ -49,6 +49,22 @@ final class CoachModel {
     /// The last command understood, shown briefly so the rescuer knows they were heard.
     var heard: String?
     var triage: TriageStep?
+    /// Recorded watch session playing in place of the live watch (stage backup).
+    var demoReplay = false
+    /// Who is being resuscitated; sets the depth targets.
+    var patient: PatientProfile = .adult { didSet { PatientProfile.current = patient } }
+    /// 30 compressions then 2 rescue breaths, for trained rescuers (off = hands-only CPR).
+    var breathsMode = UserDefaults.standard.bool(forKey: "breathsMode") {
+        didSet { UserDefaults.standard.set(breathsMode, forKey: "breathsMode") }
+    }
+    /// Compressions so far in the current 30:2 cycle.
+    var cycleCount = 0
+    /// What happened when, for the paramedic handoff.
+    var events: [TimelineEvent] = []
+    var showAEDGuide = false
+    /// The emergency screen (from the setup card, Siri or the Action button).
+    var showEmergency = false
+    var swaps = 0
     var triageAwaitingAnswer: Bool { triage == .responsive || triage == .breathing }
 
     @ObservationIgnored private var pipeline = WatchPipeline(depthScale: UserDefaults.standard.object(forKey: "watchDepthScale") as? Double ?? 1.0)
@@ -57,11 +73,31 @@ final class CoachModel {
     @ObservationIgnored private var fusion = DepthFusion()
     @ObservationIgnored private var fusedDepths: [Double] = []
     @ObservationIgnored private var recoil = RecoilTracker()
+    @ObservationIgnored private var hands = HandPlacementTracker()
     @ObservationIgnored private var session: SessionTracker?
     @ObservationIgnored private var engine = CoachEngine()
     @ObservationIgnored private let audio = CoachAudio()
     @ObservationIgnored private let listener = VoiceListener()
     @ObservationIgnored private var heardClear: Task<Void, Never>?
+    @ObservationIgnored private let replay = DemoReplay()
+    @ObservationIgnored private var forecaster = SwapForecaster()
+    @ObservationIgnored private var breathSince: Double?
+    @ObservationIgnored private var cyclesAnnounced = 0
+    @ObservationIgnored private let liveActivity = LiveActivityController()
+
+    /// The running coach, for Siri/Shortcuts intents; if the app is still launching, the request waits.
+    private static weak var shared: CoachModel?
+    private static var pending: (() -> Void)?
+
+    static func requestEmergency() {
+        let go = { (m: CoachModel) in if m.phase == .setup || m.phase == .summary { m.phase = .setup; m.showEmergency = true } }
+        if let m = shared { go(m) } else { pending = { if let m = shared { go(m) } } }
+    }
+
+    static func requestPractice() {
+        let go = { (m: CoachModel) in if m.phase == .setup || m.phase == .summary { m.start() } }
+        if let m = shared { go(m) } else { pending = { if let m = shared { go(m) } } }
+    }
     @ObservationIgnored private let sendToWatch: (WatchCommand) -> Void
     @ObservationIgnored private var lastPacketAt: Double?
     @ObservationIgnored private var heartRateAt: Double?
@@ -75,6 +111,11 @@ final class CoachModel {
         self.sendToWatch = sendToWatch
         camera = CameraPose { [weak self] sample in
             Task { @MainActor in self?.handlePose(sample) }
+        }
+        Self.shared = self
+        if let p = Self.pending {
+            Self.pending = nil
+            Task { @MainActor in p() }
         }
         listener.onPhrase = { [weak self] text in self?.handlePhrase(text) ?? false }
         listener.isEchoWindow = { [weak self] in self?.audio.echoWindow ?? false }
@@ -94,7 +135,8 @@ final class CoachModel {
     // MARK: Inputs
 
     /// A CPR1 batch from the watch, relayed by WatchLink.
-    func ingest(_ data: Data) {
+    func ingest(_ data: Data, replayed: Bool = false) {
+        if replay.running && !replayed { return } // the recording owns the watch stream while it plays
         guard let batch = CPRPacket.decode(data) else { return }
         let t = now
         lastPacketAt = t
@@ -112,9 +154,21 @@ final class CoachModel {
             }
         }
         guard phase == .running else { return }
+        for b in out.bottoms { onBottom(b.t) }
         for c in done {
             session?.onCompression(t: c.t, instRate: c.instRateCpm, depth: c.depthCm, estimated: false, from: .watch)
+            if let d = c.depthCm { forecaster.push(t: c.t, depth: d) }
         }
+    }
+
+    /// Long-press on the watch status: play the recorded session instead of the live watch.
+    func toggleDemoReplay() {
+        if replay.running {
+            replay.stop()
+        } else {
+            replay.start { [weak self] data in self?.ingest(data, replayed: true) }
+        }
+        demoReplay = replay.running
     }
 
     func heartRate(_ bpm: Int) {
@@ -126,6 +180,7 @@ final class CoachModel {
         poseImageSize = s.imageSize
         let p = tracker.update(left: s.left, right: s.right, t: s.t)
         posture = p
+        hands.update(t: s.t, wrist: p.visible ? p.joints?.wrist : nil, torso: s.patientTorso)
         guard p.visible, let wrist = p.joints?.wrist else { return }
         if watchStreaming, let arm = p.armLengthPx, arm > 0 {
             fusion.pushCamera(t: s.t, y: Double(wrist.y), pixelsPerMetreGuess: arm / (PoseConfig.armLengthCm / 100))
@@ -138,6 +193,7 @@ final class CoachModel {
             session?.recoilPct = recoil.fullPct
         }
         // The camera only grades compressions when the watch isn't streaming.
+        if let c, !watchStreaming { onBottom(c.t) }
         if let c, !watchStreaming {
             if let k = fusedCmPerPx {
                 session?.onCompression(t: c.t, instRate: c.instRateCpm, depth: c.amplitudePx.map { $0 * k }, estimated: false, from: .camera)
@@ -151,6 +207,34 @@ final class CoachModel {
     /// Camera centimetres per pixel, once the filter has learned it from the watch.
     private var fusedCmPerPx: Double? {
         fusion.converged && fusion.pixelsPerCm > 0 ? 1 / fusion.pixelsPerCm : nil
+    }
+
+    // MARK: Rescue breaths (30:2)
+
+    /// Every compression bottom, from whichever source leads.
+    private func onBottom(_ t: Double) {
+        if let since = breathSince {
+            guard t - since >= BreathConfig.resumeAfterS else { return }
+            endBreaths(prompt: false) // compressions resumed on their own
+        }
+        cycleCount += 1
+        if breathsMode && cycleCount >= BreathConfig.compressions { beginBreaths() }
+    }
+
+    private func beginBreaths() {
+        breathSince = now
+        cycleCount = 0
+        session?.plannedPause = true
+        audio.stopMetronome()
+        audio.say(tr("Give 2 breaths."), priority: 0)
+        engine.markSpoken("breaths", now: now)
+    }
+
+    func endBreaths(prompt: Bool) {
+        guard breathSince != nil else { return }
+        breathSince = nil
+        if metronomeOn && phase == .running { audio.startMetronome(bpm: Targets.rateTarget) }
+        if prompt { audio.say(tr("Resume compressions now."), priority: 0) }
     }
 
     // MARK: Tick
@@ -174,9 +258,28 @@ final class CoachModel {
             fusedCmPerPx: fusedCmPerPx)
         live = fuse(watch: watch, camera: cam)
         live.recoilIncomplete = phase == .running && recoil.incomplete && (live.lastCompressionAge ?? 99) < CoachConfig.stale
+        if let since = breathSince, t - since > BreathConfig.maxPauseS { endBreaths(prompt: true) }
+        live.breathPause = breathSince != nil
+        live.handPlacement = phase == .running ? hands.issue : nil
+        live.swapInS = phase == .running && watchStreaming ? forecaster.update(now: t, limit: Targets.depthMin) : nil
 
         guard phase == .running else { return }
         elapsed = session?.elapsed(t) ?? 0
+        let rule = banner
+        liveActivity.update(rate: live.rateCpm, depth: coachableDepth(live) ?? live.depthCm,
+                            instruction: rule.map { tr($0.banner) } ?? tr("Keep going"), tone: rule?.tone ?? .good)
+        if mode == .skillsCheck && elapsed >= SkillsCheck.durationS {
+            stop()
+            return
+        }
+        // Every 2 minutes in a real emergency: swap, and let the AED analyze.
+        if mode == .emergency, Int(elapsed / Targets.rescuerSwap) > cyclesAnnounced {
+            cyclesAnnounced = Int(elapsed / Targets.rescuerSwap)
+            audio.say(aedArrivedAt == nil
+                      ? tr("Two minutes. Switch rescuers if someone can take over. Don't stop.")
+                      : tr("Two minutes. Let the AED analyze: everyone stand clear, don't touch them. Then switch rescuers."), priority: 0)
+            engine.markSpoken("swap", now: t)
+        }
         if t - lastCoach >= CoachConfig.evalInterval {
             lastCoach = t
             let d = engine.evaluate(live, runningS: t - runStart, now: t)
@@ -187,9 +290,9 @@ final class CoachModel {
 
     // MARK: Session
 
-    func start() {
+    func start(skillsCheck: Bool = false) {
         guard phase == .setup || phase == .summary else { return }
-        mode = .training
+        mode = skillsCheck ? .skillsCheck : .training
         prepare()
         audio.say(tr("Get ready."), priority: 0)
         Task {
@@ -207,6 +310,7 @@ final class CoachModel {
         guard phase == .setup || phase == .summary else { return }
         mode = .emergency
         triage = nil
+        log(.compressions)
         muted = false
         metronomeOn = true
         prepare()
@@ -216,6 +320,8 @@ final class CoachModel {
     // MARK: Emergency check (spoken, answered by voice or buttons)
 
     func beginTriage() {
+        if phase != .running { events = [] }
+        log(.check)
         triage = .responsive
         audio.say(tr("Tap their shoulders and shout. Are they responding? Say yes or no."), priority: 0)
         updateListening()
@@ -237,7 +343,10 @@ final class CoachModel {
                 audio.say(tr("Roll them onto their side and call for help. Keep checking their breathing."), priority: 0)
             } else {
                 // Not breathing normally: get help coming and start CPR, in one step.
-                simulatedCallSince = simulatedCallSince ?? Date()
+                if simulatedCallSince == nil {
+                    simulatedCallSince = Date()
+                    log(.call)
+                }
                 startEmergency(voice: tr("No normal breathing. Calling for help. Start compressions now: push hard and fast in the center of the chest and follow the beat."))
             }
         default:
@@ -269,7 +378,7 @@ final class CoachModel {
 
     /// New words from the listener; returns true if they were a command.
     private func handlePhrase(_ text: String) -> Bool {
-        guard let cmd = CommandMatcher.match(text, lang: language, expectingAnswer: triageAwaitingAnswer) else { return false }
+        guard let cmd = CommandMatcher.match(text, lang: language, expectingAnswer: triageAwaitingAnswer, expectingDone: breathSince != nil) else { return false }
         let running = phase == .running
         switch cmd {
         case .yes, .no:
@@ -299,6 +408,10 @@ final class CoachModel {
         case .call:
             showHeard(tr("Call for help"))
             callEmergency()
+        case .done:
+            guard breathSince != nil else { return false }
+            showHeard(tr("Done"))
+            endBreaths(prompt: true)
         }
         return true
     }
@@ -326,10 +439,31 @@ final class CoachModel {
     func callEmergency() {
         guard simulatedCallSince == nil else { return }
         simulatedCallSince = Date()
+        log(.call)
         audio.say(tr("Demo call. In a real emergency, this would call %@.", Self.emergencyNumber), priority: 0)
     }
 
     func endSimulatedCall() { simulatedCallSince = nil }
+
+    // MARK: AED and handoff
+
+    var aedArrivedAt: Date? { events.first { $0.kind == .aed }?.at }
+
+    func aedArrived() {
+        if aedArrivedAt == nil { log(.aed) }
+        showAEDGuide = true
+        audio.say(tr("Turn the AED on and follow its voice. Keep pushing while someone attaches the pads."), priority: 0)
+    }
+
+    private func log(_ kind: TimelineEvent.Kind) {
+        events.append(TimelineEvent(at: Date(), kind: kind))
+    }
+
+    /// Everything a paramedic asks on arrival, from this session.
+    var handoff: HandoffReport? {
+        guard let s = summary else { return nil }
+        return HandoffReport(events: events, summary: s, swaps: swaps, patient: patient)
+    }
 
     /// The local emergency number for the phone's region.
     static var emergencyNumber: String {
@@ -356,18 +490,25 @@ final class CoachModel {
         runStart = now
         session = SessionTracker(startedAt: runStart)
         engine.reset()
+        cyclesAnnounced = 0
+        swaps = 0
         pipeline.swap()
         fusedDepths.removeAll()
         recoil.reset()
+        forecaster.reset()
+        breathSince = nil
+        cycleCount = 0
         cameraRate = CameraCompressionDetector()
         if metronomeOn { audio.startMetronome(bpm: Targets.rateTarget) }
         sendToWatch(.metronome(on: metronomeOn, bpm: Targets.rateTarget))
         audio.say(voice, priority: 0)
+        liveActivity.start(emergency: mode == .emergency)
         phase = .running
         updateListening()
     }
 
     func stop() {
+        breathSince = nil
         audio.stopMetronome()
         UIApplication.shared.isIdleTimerDisabled = false
         if case .countdown = phase {
@@ -375,20 +516,27 @@ final class CoachModel {
             return
         }
         guard phase == .running else { return }
+        liveActivity.end()
         summary = session?.finish(now)
         session = nil
-        if mode == .training, let s = summary {
+        if mode != .emergency, let s = summary {
             Task { debrief = await makeDebrief(s, language: language) }
         }
         banner = nil
+        if mode == .emergency { log(.stopped) }
         audio.say(mode == .emergency ? tr("Stopped.") : tr("Stop. Well done."), priority: 0)
         phase = .summary
         updateListening()
     }
 
     func swapRescuers() {
+        if phase == .running {
+            swaps += 1
+            log(.swap)
+        }
         pipeline.swap()
         recoil.reset() // a new rescuer's hands sit at a different height
+        forecaster.reset()
         fusedDepths.removeAll() // new rescuer, new depth; the learned camera scale still holds
     }
 

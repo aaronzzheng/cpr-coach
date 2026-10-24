@@ -18,6 +18,7 @@ import { SummaryCard } from "./components/SummaryCard";
 import { Timer } from "./components/Timer";
 import { Waveform, type WaveSample } from "./components/Waveform";
 import { CALIBRATION, CAMERA_COMPRESSIONS, COACH, COUNTDOWN_S, TARGETS, UI_TICK_MS } from "./config";
+import { SwapForecaster } from "./fusion/forecast";
 import { cameraCmPerPx, fuse, type CameraSnapshot, type LiveState } from "./fusion/fuse";
 import { api, type Calibration, type LeaderboardEntry, type Summary } from "./net/api";
 import { BackendSocket } from "./net/backendSocket";
@@ -69,6 +70,7 @@ export default function App() {
   const metronome = useRef(new Metronome());
   const backend = useRef(new BackendSocket());
   const tracker = useRef<SessionTracker | null>(null);
+  const forecaster = useRef(new SwapForecaster());
 
   const [view, setView] = useState<View | null>(null);
   const [phase, setPhase] = useState<Phase>("home");
@@ -170,6 +172,9 @@ export default function App() {
         const bNow = b.backendNow();
         if (bNow !== null) for (const e of watchEvents) tr.onCompression(now - (bNow - e.t));
         tr.onPosture(cam.posture);
+        // Fatigue forecast on the watch's per-compression depths (backend clock).
+        for (const e of watchEvents) if (e.depth_cm !== null) forecaster.current.push(e.t, e.depth_cm);
+        live.swapInS = bNow !== null && live.depth.source === "watch" ? forecaster.current.update(bNow, TARGETS.depth_min_cm) : null;
       }
 
       const c = calRef.current;
@@ -222,6 +227,7 @@ export default function App() {
       if (countdownTimer.current) clearInterval(countdownTimer.current);
       runStart.current = nowS();
       tracker.current = new SessionTracker(runStart.current);
+      forecaster.current.reset();
       engine.current.reset();
       pipeline.current?.resetSession();
       sessionId.current = null;
@@ -355,6 +361,7 @@ export default function App() {
           break;
         case "s":
           backend.current.send({ cmd: "swap" });
+          forecaster.current.reset();
           break;
         case "m":
           toggleMute();
@@ -587,6 +594,10 @@ function instructionDetail(ruleId: string | null, live: LiveState | undefined): 
       return "Lean forward so your shoulders are directly above your hands.";
     case "incomplete_recoil":
       return "Lift your weight off the chest between compressions.";
+    case "swap_soon":
+      return live.swapInS !== null
+        ? `Depth is trending down: below ${TARGETS.depth_min_cm} cm in about ${Math.round(live.swapInS)} s.`
+        : null;
     case "swap":
       return "Two minutes of compressions or depth is dropping. Hand over without pausing.";
     case "no_compressions":

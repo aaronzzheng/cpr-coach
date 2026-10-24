@@ -64,6 +64,16 @@ export const FUSION = {
   staleS: 3,
 } as const;
 
+/** Fatigue forecast (fusion/forecast.ts); same tuning as the phone. */
+export const FORECAST = {
+  windowS: 60,
+  minPoints: 40,
+  minSpanS: 25,
+  horizonS: 40,
+  significance: 2.5,
+  holdS: 5,
+} as const;
+
 export const COACH = {
   evalIntervalMs: 250,
   globalGapS: 3,

@@ -21,3 +21,7 @@ DerivedData/
 apple/Config/Local.xcconfig
 apple/CPRCoach.xcodeproj/
 apple/.build/
+
+# Simulator builds and the (large) backup demo video
+apple/.build-sim/
+demo/*.mp4

@@ -7,6 +7,7 @@ export type BannerColor = "red" | "amber" | "purple" | "green";
 export type RuleId =
   | "no_compressions"
   | "swap"
+  | "swap_soon"
   | "too_shallow"
   | "too_slow"
   | "too_fast"
@@ -70,6 +71,16 @@ export const RULES: Rule[] = [
     duringWarmup: false,
     cooldownS: COACH.ruleCooldownS,
     active: (c) => c.live.swapRecommended,
+  },
+  {
+    id: "swap_soon",
+    priority: 2.5,
+    line: "You're tiring. Get ready to switch rescuers.",
+    banner: "Switch soon",
+    color: "purple",
+    duringWarmup: false,
+    cooldownS: 25,
+    active: (c) => !c.live.swapRecommended && c.live.swapInS != null,
   },
   {
     id: "too_shallow",

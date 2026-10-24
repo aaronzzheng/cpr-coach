@@ -48,6 +48,7 @@ private let cardShape = RoundedRectangle(cornerRadius: 22, style: .continuous)
 
 struct CoachView: View {
     @Environment(CoachModel.self) private var coach
+    @AppStorage("onboarded") private var onboarded = false
 
     var body: some View {
         GeometryReader { geo in
@@ -64,6 +65,7 @@ struct CoachView: View {
                         }
                     } else {
                         CameraCard()
+                            .frame(maxHeight: coach.phase == .setup || coach.phase == .summary ? 230 : .infinity)
                         lowerContent(compact: false)
                     }
                 }
@@ -74,15 +76,26 @@ struct CoachView: View {
             .id(coach.language) // re-render every string when the language changes
         }
         .simulatedCallOverlay(coach)
+        .sheet(isPresented: Bindable(coach).showAEDGuide) { AEDGuideSheet() }
+        .fullScreenCover(isPresented: Binding(get: { !onboarded }, set: { onboarded = !$0 })) {
+            OnboardingView {
+                onboarded = true
+                Task { await coach.startCamera() }
+            }
+        }
         .preferredColorScheme(.dark)
-        .task { await coach.startCamera() }
+        .task { if onboarded { await coach.startCamera() } }
     }
 
     @ViewBuilder
     private func lowerContent(compact: Bool) -> some View {
         switch coach.phase {
         case .setup, .summary:
-            SetupCard()
+            // The setup card can be taller than the screen (long languages); it scrolls under the camera.
+            ScrollView { SetupCard() }
+                .scrollBounceBehavior(.basedOnSize)
+                .scrollIndicators(.hidden)
+                .clipShape(cardShape)
         case .countdown, .running:
             InstructionCard()
             HStack(spacing: 12) {
@@ -109,8 +122,25 @@ private struct TopBar: View {
     var body: some View {
         HStack(spacing: 16) {
             SourceDot(label: tr("Watch"), on: coach.watchStreaming)
+                .onLongPressGesture(minimumDuration: 1) { coach.toggleDemoReplay() }
+                .sensoryFeedback(.success, trigger: coach.demoReplay)
             SourceDot(label: tr("Arm in view"), on: coach.posture?.visible == true)
             Spacer(minLength: 0)
+            if let since = coach.simulatedCallSince, coach.phase == .running {
+                Button { coach.endSimulatedCall() } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "phone.fill").font(.caption.weight(.bold))
+                        Text(CoachModel.emergencyNumber).font(.footnote.weight(.semibold))
+                        Text(since, style: .timer).font(.footnote.monospacedDigit())
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .frame(height: 28)
+                    .background(Palette.good, in: Capsule())
+                }
+                .accessibilityLabel(tr("Calling %@", CoachModel.emergencyNumber))
+                .accessibilityHint(tr("End demo call"))
+            }
             if coach.listening { ListeningIndicator(heard: coach.heard) }
             if let hr = coach.live.heartRate {
                 Label("\(Int(hr))", systemImage: "heart.fill")
@@ -119,7 +149,8 @@ private struct TopBar: View {
                     .accessibilityLabel(tr("Heart rate %@", "\(Int(hr))"))
             }
             if coach.phase == .running {
-                Text(clock(coach.elapsed))
+                // Skills check counts down its 2 minutes; otherwise the session clock counts up.
+                Text(coach.mode == .skillsCheck ? clock(max(0, SkillsCheck.durationS - coach.elapsed)) : clock(coach.elapsed))
                     .font(.system(.title3, weight: .semibold).monospacedDigit())
                     .foregroundStyle(Palette.text)
             }
@@ -213,6 +244,15 @@ private struct RunningControls: View {
         HStack(spacing: 10) {
             if coach.mode == .emergency {
                 GlassButton(symbol: "phone.fill", on: true, label: tr("Call %@", CoachModel.emergencyNumber)) { coach.callEmergency() }
+                Button { coach.aedArrived() } label: {
+                    Text("AED")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .frame(height: 44)
+                        .background(Palette.good.opacity(coach.aedArrivedAt == nil ? 0.9 : 0.5), in: Capsule())
+                }
+                .accessibilityLabel(tr("The AED is here"))
             }
             GlassButton(symbol: "metronome.fill", on: coach.metronomeOn, label: tr("Metronome")) { coach.metronomeOn.toggle() }
             GlassButton(symbol: coach.muted ? "speaker.slash.fill" : "speaker.wave.2.fill", on: !coach.muted, label: tr("Voice coach")) {
@@ -299,10 +339,16 @@ func instructionDetail(_ ruleId: String?, _ l: LiveState) -> String? {
     let rate = l.rateCpm.map { Int($0.rounded()) }
     let depth = l.depthCm.map { (l.depthEstimate ? "≈" : "") + trNumber($0, digits: 1) + " cm" }
     switch ruleId {
-    case "too_shallow", "too_deep": return depth.map { tr("Depth %@. Aim for 5–6 cm.", $0) }
+    case "too_shallow", "too_deep":
+        return depth.map { tr("Depth %@. Aim for %@ cm.", $0, trNumber(Targets.depthMin, digits: 1) + "–" + trNumber(Targets.depthMax, digits: 1)) }
+    case "swap_soon":
+        return l.swapInS.map { tr("Depth is trending down: below %@ cm in about %@ s.", trNumber(Targets.depthMin, digits: 1), "\(Int($0.rounded()))") }
+    case "breaths": return tr("Tilt the head back, lift the chin, 2 breaths of 1 second each. Then straight back to compressions.")
     case "too_slow", "too_fast": return rate.map { tr("%@ per minute. Aim for 100–120, follow the beat.", "\($0)") }
     case "elbows_bent": return l.elbowAngleDeg.map { tr("Elbows at %@°. Straighten your arms.", "\(Int($0.rounded()))") }
     case "recoil": return tr("Lift your weight off the chest between pushes, but keep your hands on it.")
+    case "hands_low": return tr("Your hands are too close to the stomach.")
+    case "hands_high": return tr("Your hands are too close to the neck.")
     case "not_over_hands": return tr("Lean forward so your shoulders are above your hands.")
     case "swap": return tr("Hand over to the next person without pausing.")
     case "no_compressions": return tr("Every second without compressions counts.")
@@ -455,17 +501,18 @@ private struct Meter: View {
 
 private struct SetupCard: View {
     @Environment(CoachModel.self) private var coach
-    @State private var showEmergency = false
 
     var body: some View {
         @Bindable var coach = coach
         VStack(alignment: .leading, spacing: 14) {
-            Button { showEmergency = true } label: {
+            Button { coach.showEmergency = true } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "staroflife.fill").font(.title3)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(tr("Someone collapsed?")).font(.headline)
                         Text(tr("Call for help and get coached through CPR")).font(.footnote).opacity(0.85)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right").font(.subheadline.weight(.semibold)).opacity(0.7)
@@ -474,42 +521,56 @@ private struct SetupCard: View {
                 .padding(14)
                 .background(Palette.urgent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
-            .fullScreenCover(isPresented: $showEmergency) { EmergencySheet().simulatedCallOverlay(coach) }
+            .fullScreenCover(isPresented: $coach.showEmergency) { EmergencySheet().simulatedCallOverlay(coach) }
             HStack(alignment: .firstTextBaseline) {
                 Text(tr("Ready to practice")).font(.system(size: 28, weight: .bold)).tracking(-0.6)
                 Spacer(minLength: 8)
                 LanguageMenu()
             }
+            HStack(spacing: 10) {
+                Button { coach.start() } label: {
+                    Label(tr("Start session"), systemImage: "play.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, minHeight: 54)
+                        .foregroundStyle(.white)
+                        .background(Palette.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                Button { coach.start(skillsCheck: true) } label: {
+                    Label(tr("Skills check"), systemImage: "checkmark.seal")
+                        .font(.headline)
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 54)
+                        .foregroundStyle(Palette.text)
+                        .background(Palette.surface2, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .accessibilityHint(tr("A timed 2-minute test, pass or fail"))
+            }
             Text(tr("Prop the phone up beside you so the camera sees you from the side, arms down to the chest."))
                 .font(.subheadline).foregroundStyle(Palette.muted)
+                .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 8) {
                 Check(done: coach.posture?.visible == true, text: tr("Shoulder, elbow and wrist in view"))
                 Check(done: coach.watchStreaming, text: tr("Watch connected (adds depth)"))
             }
-            let metronome = PillToggle(symbol: "metronome.fill", text: tr("Metronome"), on: $coach.metronomeOn)
-            let voice = PillToggle(symbol: "speaker.wave.2.fill", text: tr("Voice"), on: Binding(get: { !coach.muted }, set: { coach.muted = !$0 }))
-            let handsFree = PillToggle(symbol: "mic.fill", text: tr("Hands-free"), on: $coach.handsFree)
-            // One row when it fits; longer languages wrap the third pill.
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) { metronome; voice; handsFree }
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 10) { metronome; voice }
-                    handsFree
+            PatientPicker()
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    PillToggle(symbol: "metronome.fill", text: tr("Metronome"), on: $coach.metronomeOn)
+                    PillToggle(symbol: "speaker.wave.2.fill", text: tr("Voice"), on: Binding(get: { !coach.muted }, set: { coach.muted = !$0 }))
+                }
+                HStack(spacing: 10) {
+                    PillToggle(symbol: "mic.fill", text: tr("Hands-free"), on: $coach.handsFree)
+                    PillToggle(symbol: "lungs.fill", text: tr("30:2 breaths"), on: $coach.breathsMode)
                 }
             }
             if coach.handsFree {
                 Text(tr("Say \"swap\", \"how long\", \"how am I doing\" or \"stop\" while you work."))
                     .font(.footnote).foregroundStyle(Palette.muted)
-            }
-            Button { coach.start() } label: {
-                Label(tr("Start session"), systemImage: "play.fill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, minHeight: 54)
-                    .foregroundStyle(.white)
-                    .background(Palette.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Text(tr("Training tool, not a medical device. In an emergency, call your local emergency number first."))
                 .font(.caption).foregroundStyle(Palette.faint)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -676,6 +737,14 @@ private struct SummarySheet: View {
             Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
+                    if coach.mode == .skillsCheck {
+                        SkillsResultCard(summary: s)
+                        if let img = skillsShareImage(s) {
+                            ShareLink(item: img, preview: SharePreview(tr("Skills check"), image: img)) {
+                                Label(tr("Share result"), systemImage: "square.and.arrow.up").font(.subheadline.weight(.semibold))
+                            }
+                        }
+                    }
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(tr("Session score")).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.muted)
@@ -838,7 +907,8 @@ extension View {
     /// Shows the demo call banner on top of this view while a simulated call is active.
     func simulatedCallOverlay(_ coach: CoachModel) -> some View {
         overlay {
-            if let since = coach.simulatedCallSince { SimulatedCallBanner(since: since) }
+            // During compressions the call shrinks to a pill in the top bar, clear of the controls.
+            if let since = coach.simulatedCallSince, coach.phase != .running { SimulatedCallBanner(since: since) }
         }
         .animation(.spring(duration: 0.35), value: coach.simulatedCallSince)
     }
@@ -867,6 +937,7 @@ private struct EmergencySheet: View {
                         .accessibilityLabel(tr("Close"))
                     }
                     TriageCard()
+                    PatientPicker()
                     EmergencyStep(number: 1, title: tr("Call %@", CoachModel.emergencyNumber),
                                   detail: tr("Put the call on speaker. Say someone collapsed and isn't breathing normally. Send anyone nearby for an AED.")) {
                         Button { coach.callEmergency() } label: {
@@ -878,7 +949,7 @@ private struct EmergencySheet: View {
                         }
                     }
                     EmergencyStep(number: 2, title: tr("Start compressions"),
-                                  detail: tr("Kneel beside them. Heel of one hand in the center of the chest, other hand on top, arms straight. Push hard and fast, about 5 cm, twice a second.")) {
+                                  detail: handPlacement(coach.patient)) {
                         Button {
                             coach.startEmergency()
                             dismiss()
@@ -929,6 +1000,7 @@ private struct EmergencyStep<Action: View>: View {
 
 private struct EmergencySummary: View {
     @Environment(CoachModel.self) private var coach
+    @State private var showHandoff = false
     let summary: SessionSummary
     var body: some View {
         ZStack {
@@ -942,6 +1014,12 @@ private struct EmergencySummary: View {
                         .frame(maxWidth: .infinity, minHeight: 54).foregroundStyle(.white)
                         .background(Palette.urgent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
+                Button { showHandoff = true } label: {
+                    Label(tr("Report for paramedics"), systemImage: "list.clipboard.fill").font(.headline)
+                        .frame(maxWidth: .infinity, minHeight: 50).foregroundStyle(Palette.ink)
+                        .background(Palette.text, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .sheet(isPresented: $showHandoff) { if let r = coach.handoff { HandoffSheet(report: r) } }
                 HStack(spacing: 12) {
                     Button { coach.callEmergency() } label: {
                         Label(tr("Call %@", CoachModel.emergencyNumber), systemImage: "phone.fill").frame(maxWidth: .infinity, minHeight: 48)

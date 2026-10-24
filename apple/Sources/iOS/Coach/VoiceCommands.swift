@@ -6,7 +6,7 @@ import AVFoundation
 import Speech
 
 nonisolated enum VoiceCommand: Equatable, Sendable {
-    case stop, swap, time, status, call, yes, no
+    case stop, swap, time, status, call, yes, no, done
 }
 
 /// Keyword spotting per language. Negatives win over positives ("not breathing" is a no), and
@@ -14,7 +14,7 @@ nonisolated enum VoiceCommand: Equatable, Sendable {
 nonisolated enum CommandMatcher {
     private struct Words {
         var stop: [String], dontStop: [String], swap: [String], time: [String], status: [String], call: [String]
-        var no: [String], yes: [String]
+        var no: [String], yes: [String], done: [String]
     }
 
     private static let table: [AppLanguage: Words] = [
@@ -23,37 +23,38 @@ nonisolated enum CommandMatcher {
                    status: ["how am i doing", "how's it going", "how is it going", "how do i look", "status", "feedback"],
                    call: ["call 911", "call for help", "call an ambulance", "call emergency", "ambulance", "call help"],
                    no: ["no", "nope", "nah", "not", "isn't", "isnt", "aren't", "doesn't", "nothing", "gasping", "gasps"],
-                   yes: ["yes", "yeah", "yep", "yup", "responding", "breathing", "they are", "he is", "she is", "correct"]),
+                   yes: ["yes", "yeah", "yep", "yup", "responding", "breathing", "they are", "he is", "she is", "correct"], done: ["done", "finished", "breaths done", "resume"]),
         .es: Words(stop: ["detente", "parar", "alto", "stop", "termina"], dontStop: ["no pares", "no parar", "sin parar"],
                    swap: ["cambio", "cambiar", "relevo", "relévame"], time: ["cuánto tiempo", "cuanto tiempo", "tiempo"],
                    status: ["cómo voy", "como voy", "cómo lo hago", "como lo hago", "qué tal", "que tal"],
                    call: ["llama", "llamar", "ambulancia", "emergencias", "ayuda"],
-                   no: ["no", "nada", "jadea", "boquea"], yes: ["sí", "si", "responde", "respira", "claro"]),
+                   no: ["no", "nada", "jadea", "boquea"], yes: ["sí", "si", "responde", "respira", "claro"], done: ["listo", "hecho", "ya está"]),
         .fr: Words(stop: ["stop", "arrête", "arrêter", "arrete", "termine"], dontStop: ["n'arrête pas", "arrête pas", "sans arrêt"],
                    swap: ["change", "changer", "relais", "relève", "remplace"], time: ["combien de temps", "temps"],
                    status: ["comment je fais", "comment ça va", "comment ca va", "je fais bien"],
                    call: ["appelle", "appeler", "ambulance", "secours", "samu"],
-                   no: ["non", "pas", "rien", "halète", "suffoque"], yes: ["oui", "ouais", "répond", "respire"]),
+                   no: ["non", "pas", "rien", "halète", "suffoque"], yes: ["oui", "ouais", "répond", "respire"], done: ["fini", "terminé", "c'est fait"]),
         .zh: Words(stop: ["停止", "停下", "停", "结束"], dontStop: ["不要停", "别停", "不停"],
                    swap: ["换人", "交换", "换一下", "替换"], time: ["多久", "多长时间", "几分钟", "时间"],
                    status: ["怎么样", "做得对", "做得好吗"], call: ["打电话", "呼叫", "急救", "救护车", "120"],
-                   no: ["没", "不", "喘"], yes: ["是", "有", "对", "嗯", "在呼吸"]),
+                   no: ["没", "不", "喘"], yes: ["是", "有", "对", "嗯", "在呼吸"], done: ["好了", "完成"]),
         .ko: Words(stop: ["멈춰", "그만", "정지", "스톱", "종료"], dontStop: ["멈추지 마", "멈추지마", "계속"],
                    swap: ["교대", "바꿔", "교체"], time: ["얼마나", "몇 분", "시간"],
                    status: ["어때", "잘하고", "괜찮아"], call: ["전화", "119", "구급차", "신고"],
-                   no: ["아니", "안 ", "없어", "없어요", "못", "헐떡"], yes: ["네", "예", "응", "있어", "쉬어", "맞아"]),
+                   no: ["아니", "안 ", "없어", "없어요", "못", "헐떡"], yes: ["네", "예", "응", "있어", "쉬어", "맞아"], done: ["다 했어", "완료", "끝났어"]),
         .ja: Words(stop: ["止めて", "やめて", "ストップ", "停止", "とめて", "終了"], dontStop: ["止めないで", "やめないで"],
                    swap: ["交代", "代わって", "かわって"], time: ["どのくらい", "何分", "時間"],
                    status: ["どう", "調子", "大丈夫"], call: ["電話", "119", "救急車", "通報"],
-                   no: ["いいえ", "ない", "してない", "あえいで", "あえぎ"], yes: ["はい", "うん", "ええ", "している", "してる", "あります"]),
+                   no: ["いいえ", "ない", "してない", "あえいで", "あえぎ"], yes: ["はい", "うん", "ええ", "している", "してる", "あります"], done: ["できた", "終わった", "完了"]),
         .hi: Words(stop: ["रुको", "रोको", "बंद करो", "स्टॉप", "stop"], dontStop: ["मत रुको", "रुकना मत"],
                    swap: ["बदलो", "बदल", "स्वैप", "swap"], time: ["कितना समय", "कितनी देर", "समय"],
                    status: ["कैसा कर", "कैसे कर", "ठीक है क्या"], call: ["कॉल", "फोन", "फ़ोन", "एम्बुलेंस", "112", "108"],
-                   no: ["नहीं", "नही", "ना"], yes: ["हाँ", "हां", "हा", "जी", "सांस ले"]),
+                   no: ["नहीं", "नही", "ना"], yes: ["हाँ", "हां", "हा", "जी", "सांस ले"], done: ["हो गया", "हो गई"]),
     ]
 
     /// `expectingAnswer`: the emergency check is waiting for yes or no.
-    static func match(_ text: String, lang: AppLanguage, expectingAnswer: Bool) -> VoiceCommand? {
+    /// `expectingDone`: rescue breaths are underway, so "done" means resume.
+    static func match(_ text: String, lang: AppLanguage, expectingAnswer: Bool, expectingDone: Bool = false) -> VoiceCommand? {
         guard let w = table[lang] else { return nil }
         let t = " " + text.lowercased().replacingOccurrences(of: "’", with: "'") + " "
         let tokens = Set(t.split(whereSeparator: { !$0.isLetter && !$0.isNumber && $0 != "'" }).map(String.init))
@@ -67,6 +68,7 @@ nonisolated enum CommandMatcher {
             if has(w.no) { return .no }
             if has(w.yes) { return .yes }
         }
+        if expectingDone && has(w.done) { return .done }
         if has(w.call) { return .call }
         if has(w.swap) { return .swap }
         if has(w.status) { return .status }

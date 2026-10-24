@@ -43,6 +43,8 @@ export interface LiveState {
   swapRecommended: boolean;
   /** 0–1, watch only. */
   fatigueScore: number | null;
+  /** Forecast seconds until depth drops below target (set by the app from SwapForecaster). */
+  swapInS: number | null;
 }
 
 export function cameraCmPerPx(cam: CameraSnapshot): number | null {
@@ -101,5 +103,6 @@ export function fuse(watch: WatchSnapshot | null, cam: CameraSnapshot): LiveStat
     hrBpm: watch?.hrBpm ?? null,
     swapRecommended: watch?.swapRecommended ?? false,
     fatigueScore: watch?.fatigueScore ?? null,
+    swapInS: null,
   };
 }

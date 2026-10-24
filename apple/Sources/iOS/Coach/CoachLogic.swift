@@ -85,6 +85,49 @@ nonisolated struct PostureTracker {
     }
 }
 
+// MARK: Hand placement
+
+/// Shoulder and hip midpoints of a body, image pixels.
+nonisolated struct Torso: Sendable {
+    var shoulder: CGPoint, hip: CGPoint
+    /// 1 = standing/kneeling upright, 0 = lying flat.
+    var uprightness: Double {
+        let dx = abs(Double(hip.x - shoulder.x)), dy = abs(Double(hip.y - shoulder.y))
+        return dx + dy > 0 ? dy / (dx + dy) : 0.5
+    }
+}
+
+nonisolated enum HandPlacement: Equatable { case tooLow, tooHigh }
+
+/// Where the rescuer's hands are along the patient's torso: 0 at the shoulders, 1 at the hips.
+/// The target (lower half of the breastbone) sits at roughly 0.2–0.45 seen from the side.
+nonisolated func torsoFraction(wrist: CGPoint, torso: Torso) -> Double? {
+    let ax = Double(torso.hip.x - torso.shoulder.x), ay = Double(torso.hip.y - torso.shoulder.y)
+    let len2 = ax * ax + ay * ay
+    guard len2 > 1 else { return nil }
+    return (Double(wrist.x - torso.shoulder.x) * ax + Double(wrist.y - torso.shoulder.y) * ay) / len2
+}
+
+/// Flags hands too far toward the belly or the neck, once it has lasted a couple of seconds.
+nonisolated struct HandPlacementTracker {
+    static let range = 0.12...0.55
+    static let holdS = 2.0
+    private var since: (issue: HandPlacement, t: Double)?
+    private(set) var issue: HandPlacement?
+
+    mutating func reset() { self = HandPlacementTracker() }
+
+    mutating func update(t: Double, wrist: CGPoint?, torso: Torso?) {
+        guard let wrist, let torso, let f = torsoFraction(wrist: wrist, torso: torso), (-0.3...1.3).contains(f) else {
+            since = nil; issue = nil; return  // no patient in view: say nothing
+        }
+        let now: HandPlacement? = f > Self.range.upperBound ? .tooLow : f < Self.range.lowerBound ? .tooHigh : nil
+        guard let now else { since = nil; issue = nil; return }
+        if since?.issue != now { since = (now, t) }
+        issue = t - since!.t >= Self.holdS ? now : nil
+    }
+}
+
 // MARK: Camera compressions (fallback when there's no watch)
 
 nonisolated struct CameraCompression {
@@ -151,6 +194,53 @@ nonisolated struct CameraCompressionDetector {
         lastBottom = b
         count += 1
         return CameraCompression(t: b.t, instRateCpm: inst, amplitudePx: amp, topY: topY)
+    }
+}
+
+// MARK: Fatigue forecast
+
+/// Predicts when the rescuer's depth will fall below the target, from the trend of recent
+/// per-compression depths, so the coach can call a swap before quality drops rather than after.
+/// A least-squares line over the last ~45 s; it only warns when the downward slope is
+/// statistically clear (noise in single compressions is about ±0.5 cm).
+nonisolated struct SwapForecaster {
+    private var pts: [(t: Double, d: Double)] = []
+    private var since: Double?
+
+    mutating func reset() { self = SwapForecaster() }
+
+    /// The forecast, once it has held for a few seconds (one noisy stretch shouldn't call a swap).
+    mutating func update(now: Double, limit: Double) -> Double? {
+        guard let s = secondsToShallow(now: now, limit: limit) else { since = nil; return nil }
+        since = since ?? now
+        return now - since! >= ForecastConfig.holdS ? s : nil
+    }
+
+    mutating func push(t: Double, depth: Double) {
+        pts.append((t, depth))
+        pts.removeAll { t - $0.t > ForecastConfig.windowS }
+    }
+
+    /// Seconds until the trend crosses `limit`, if it is falling and will within the horizon.
+    func secondsToShallow(now: Double, limit: Double) -> Double? {
+        guard pts.count >= ForecastConfig.minPoints, let first = pts.first, let last = pts.last,
+              last.t - first.t >= ForecastConfig.minSpanS else { return nil }
+        let n = Double(pts.count)
+        let mt = pts.reduce(0) { $0 + $1.t } / n
+        let md = pts.reduce(0) { $0 + $1.d } / n
+        var stt = 0.0, std = 0.0
+        for p in pts { stt += (p.t - mt) * (p.t - mt); std += (p.t - mt) * (p.d - md) }
+        guard stt > 0 else { return nil }
+        let slope = std / stt
+        let intercept = md - slope * mt
+        var sse = 0.0
+        for p in pts { let r = p.d - (intercept + slope * p.t); sse += r * r }
+        let se = (sse / max(1, n - 2) / stt).squareRoot()
+        guard slope < 0, slope < -ForecastConfig.significance * se else { return nil }
+        let dNow = intercept + slope * now
+        guard dNow >= limit else { return nil } // already shallow: the depth rule handles it
+        let s = (limit - dNow) / slope
+        return s <= ForecastConfig.horizonS ? s : nil
     }
 }
 
@@ -245,6 +335,12 @@ nonisolated struct LiveState {
     var swapRecommended = false
     var fatigueScore: Double?
     var recoilIncomplete = false
+    /// Forecast seconds until depth drops below target (fatigue), when it's coming soon.
+    var swapInS: Double?
+    /// Waiting for two rescue breaths (30:2 mode).
+    var breathPause = false
+    /// Hands off the center of the chest (only when the patient is in view).
+    var handPlacement: HandPlacement?
 }
 
 nonisolated func cameraCmPerPx(_ cam: CameraSnapshot) -> Double? {
@@ -312,22 +408,30 @@ nonisolated func isAllGreen(_ l: LiveState) -> Bool {
     guard let age = l.lastCompressionAge, age < CoachConfig.noCompression,
           let r = l.rateCpm, r >= Targets.rateMin, r <= Targets.rateMax else { return false }
     if let d = coachableDepth(l), d < Targets.depthMin || d > Targets.depthMax { return false }
-    return !l.elbowViolation && !l.alignViolation && !l.swapRecommended && !l.recoilIncomplete
+    return !l.elbowViolation && !l.alignViolation && !l.swapRecommended && !l.recoilIncomplete && l.handPlacement == nil
 }
 
 nonisolated let coachRules: [CoachRule] = [
     CoachRule(id: "no_compressions", priority: 1, line: "Keep pushing! Don't stop.", banner: "Keep pushing", tone: .urgent,
               duringWarmup: true, cooldown: CoachConfig.ruleCooldown) { l, running, _ in
-        l.lastCompressionAge.map { $0 >= CoachConfig.noCompression } ?? (running >= CoachConfig.noCompression)
+        !l.breathPause && (l.lastCompressionAge.map { $0 >= CoachConfig.noCompression } ?? (running >= CoachConfig.noCompression))
     },
     CoachRule(id: "swap", priority: 2, line: "Switch rescuers now.", banner: "Switch rescuers", tone: .swap,
               duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in l.swapRecommended },
+    CoachRule(id: "breaths", priority: 0, line: "Give 2 breaths.", banner: "Give 2 breaths", tone: .swap,
+              duringWarmup: true, cooldown: 60) { l, _, _ in l.breathPause },
+    CoachRule(id: "swap_soon", priority: 3, line: "You're tiring. Get ready to switch rescuers.", banner: "Switch soon", tone: .swap,
+              duringWarmup: false, cooldown: 25) { l, _, _ in !l.swapRecommended && l.swapInS != nil },
     CoachRule(id: "too_shallow", priority: 3, line: "Push harder.", banner: "Push harder", tone: .urgent,
               duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in (coachableDepth(l) ?? 99) < Targets.depthMin },
     CoachRule(id: "too_slow", priority: 4, line: "Faster.", banner: "Faster", tone: .warning,
               duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in (l.rateCpm ?? 999) < Targets.rateMin },
     CoachRule(id: "too_fast", priority: 5, line: "Slow down.", banner: "Slow down", tone: .warning,
               duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in (l.rateCpm ?? 0) > Targets.rateMax },
+    CoachRule(id: "hands_low", priority: 5, line: "Move your hands toward their head, to the center of the chest.", banner: "Hands higher on chest",
+              tone: .warning, duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in l.handPlacement == .tooLow },
+    CoachRule(id: "hands_high", priority: 5, line: "Move your hands down to the lower half of the breastbone.", banner: "Hands lower on chest",
+              tone: .warning, duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in l.handPlacement == .tooHigh },
     CoachRule(id: "recoil", priority: 6, line: "Let the chest come all the way up.", banner: "Let the chest rise", tone: .warning,
               duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in l.recoilIncomplete },
     CoachRule(id: "elbows_bent", priority: 7, line: "Lock your elbows.", banner: "Lock your elbows", tone: .warning,
@@ -348,11 +452,20 @@ nonisolated struct CoachEngine {
 
     mutating func reset() { self = CoachEngine() }
 
+    /// A line the model spoke itself (e.g. the breaths prompt), so the engine doesn't repeat it.
+    mutating func markSpoken(_ id: String, now: Double) {
+        lastSpoken = now
+        ruleSpoken[id] = now
+    }
+
     mutating func evaluate(_ live: LiveState, runningS: Double, now: Double) -> (banner: CoachRule?, speak: CoachRule?) {
         greenSince = isAllGreen(live) ? (greenSince ?? now) : nil
         let green = greenSince.map { now - $0 } ?? 0
         let warmup = runningS < CoachConfig.warmup
-        let active = coachRules.filter { (!warmup || $0.duringWarmup) && $0.active(live, runningS, green) }.sorted { $0.priority < $1.priority }
+        // During rescue breaths only the breaths prompt applies.
+        let active = coachRules.filter {
+            (!warmup || $0.duringWarmup) && (!live.breathPause || $0.id == "breaths") && $0.active(live, runningS, green)
+        }.sorted { $0.priority < $1.priority }
         var speak: CoachRule?
         if now - lastSpoken >= CoachConfig.globalGap {
             speak = active.first { now - (ruleSpoken[$0.id] ?? -.infinity) >= $0.cooldown }
@@ -409,6 +522,7 @@ nonisolated struct SessionTracker {
     private var handsOff = 0.0
     private var rateOk: [Bool] = [], depthOk: [Bool] = [], rates: [Double] = [], depths: [Double] = []
     private var graded = 0
+    private var breathPauses = 0
     private var depthEstimated = false
     private var source: RateSource?
     private var postureTicks = 0, lockedTicks = 0, alignedTicks = 0
@@ -420,13 +534,19 @@ nonisolated struct SessionTracker {
     }
 
     /// A compression from whichever source is primary right now.
+    /// Set when rescue breaths start: the gap before the next compression is a planned pause.
+    var plannedPause = false
+
     mutating func onCompression(t: Double, instRate: Double?, depth: Double?, estimated: Bool, from src: RateSource) {
         if t < startedAt { return }
         if let l = lastCompression, t - l < 0.2 { return }
         settle(t)
         if clockStart == nil { clockStart = t }
         let gap = t - (lastCompression ?? clockStart!)
-        if gap > Targets.pauseThreshold {
+        if plannedPause {
+            plannedPause = false
+            if gap > Targets.pauseThreshold { breathPauses += 1 }
+        } else if gap > Targets.pauseThreshold {
             pauseCount += 1
             longestPause = max(longestPause, gap)
             handsOff += gap

@@ -10,6 +10,8 @@ nonisolated struct PoseSample: Sendable {
     var right: ArmJoints?
     /// Image size in pixels; joints are in this space with origin top-left.
     var imageSize: CGSize
+    /// A second, lying-down body (the patient): shoulder and hip midpoints, when Vision finds one.
+    var patientTorso: Torso? = nil
 }
 
 nonisolated final class CameraPose: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
@@ -108,19 +110,34 @@ nonisolated final class CameraPose: NSObject, AVCaptureVideoDataOutputSampleBuff
         let handler = VNImageRequestHandler(cvPixelBuffer: pixels, orientation: .up)
         try? handler.perform([request])
         let t = ProcessInfo.processInfo.systemUptime
-        guard let body = request.results?.first else {
+        // Vision: normalized, origin bottom-left → pixels, origin top-left.
+        func px(_ p: VNRecognizedPoint) -> CGPoint { CGPoint(x: p.x * size.width, y: (1 - p.y) * size.height) }
+        func torso(_ b: VNHumanBodyPoseObservation) -> Torso? {
+            func mid(_ a: VNHumanBodyPoseObservation.JointName, _ c: VNHumanBodyPoseObservation.JointName) -> CGPoint? {
+                let pts = [a, c].compactMap { try? b.recognizedPoint($0) }.filter { $0.confidence >= 0.3 }
+                guard !pts.isEmpty else { return nil }
+                let ps = pts.map(px)
+                return CGPoint(x: ps.map(\.x).reduce(0, +) / CGFloat(ps.count), y: ps.map(\.y).reduce(0, +) / CGFloat(ps.count))
+            }
+            guard let s = mid(.leftShoulder, .rightShoulder), let h = mid(.leftHip, .rightHip) else { return nil }
+            return Torso(shoulder: s, hip: h)
+        }
+        let bodies = request.results ?? []
+        // The rescuer kneels upright; the patient lies flat. Pick by torso angle when there are two.
+        let ranked = bodies.map { (b: $0, torso: torso($0)) }
+            .sorted { ($0.torso?.uprightness ?? 0.5) > ($1.torso?.uprightness ?? 0.5) }
+        guard let body = ranked.first?.b else {
             onPose(PoseSample(t: t, imageSize: size))
             return
         }
+        let patient = ranked.dropFirst().compactMap(\.torso).first { $0.uprightness < 0.5 }
         func arm(_ s: VNHumanBodyPoseObservation.JointName, _ e: VNHumanBodyPoseObservation.JointName,
                  _ w: VNHumanBodyPoseObservation.JointName) -> ArmJoints? {
             guard let ps = try? body.recognizedPoint(s), let pe = try? body.recognizedPoint(e),
                   let pw = try? body.recognizedPoint(w) else { return nil }
-            // Vision: normalized, origin bottom-left → pixels, origin top-left.
-            func px(_ p: VNRecognizedPoint) -> CGPoint { CGPoint(x: p.x * size.width, y: (1 - p.y) * size.height) }
             return ArmJoints(shoulder: px(ps), elbow: px(pe), wrist: px(pw), confidence: min(ps.confidence, pe.confidence, pw.confidence))
         }
         onPose(PoseSample(t: t, left: arm(.leftShoulder, .leftElbow, .leftWrist),
-                          right: arm(.rightShoulder, .rightElbow, .rightWrist), imageSize: size))
+                          right: arm(.rightShoulder, .rightElbow, .rightWrist), imageSize: size, patientTorso: patient))
     }
 }

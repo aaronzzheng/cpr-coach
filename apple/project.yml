@@ -24,7 +24,12 @@ targetTemplates:
   RelayApp:
     type: application
     platform: iOS
-    sources: [Sources/iOS]
+    sources:
+      - Sources/iOS
+      - Sources/Core
+      - Sources/Shared
+      - path: Resources
+        buildPhase: resources
     entitlements:
       path: Config/CPRCoach.entitlements
       properties:
@@ -49,11 +54,14 @@ targetTemplates:
         INFOPLIST_KEY_NSCameraUsageDescription: Watches your arm position from the side to coach elbows and shoulders. Video never leaves the phone.
         INFOPLIST_KEY_NSMicrophoneUsageDescription: Listens for hands-free voice commands like "swap" or "how am I doing" while your hands are on the chest.
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: Understands your voice commands on the phone, so you can keep both hands on the chest.
+        INFOPLIST_KEY_NSSupportsLiveActivities: YES
 
 targets:
   CPRCoach:
     templates: [RelayApp]
     dependencies:
+      - target: CPRCoachWidgets
+        embed: true
       - target: CPRCoachWatch
         embed: true
         copy:
@@ -64,11 +72,31 @@ targets:
   # before the watch is registered to the signing team (make apple-install-phone).
   CPRCoachPhoneOnly:
     templates: [RelayApp]
+    dependencies:
+      - target: CPRCoachWidgets
+        embed: true
+
+  # Lock-screen / Dynamic Island Live Activity for a running session.
+  CPRCoachWidgets:
+    type: app-extension
+    platform: iOS
+    sources: [Sources/Widgets, Sources/Shared]
+    info:
+      path: Config/CPRCoachWidgets-Info.plist
+      properties:
+        CFBundleDisplayName: CPR Coach
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).cprcoach.widgets
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES
 
   CPRCoachWatch:
     type: application
     platform: watchOS
-    sources: [Sources/Watch]
+    sources: [Sources/Watch, Sources/Core]
     entitlements:
       path: Config/CPRCoachWatch.entitlements
       properties:
