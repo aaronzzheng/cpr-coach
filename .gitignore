@@ -16,3 +16,8 @@ xcuserdata/
 DerivedData/
 .build/
 *.tsbuildinfo
+
+# Per-developer Xcode signing settings
+apple/Config/Local.xcconfig
+apple/CPRCoach.xcodeproj/
+apple/.build/

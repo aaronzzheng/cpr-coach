@@ -104,6 +104,7 @@ actor LaptopSocket {
                 }
             }
         } catch {
+            if gen == generation { events.yield(.socketError(error.localizedDescription)) }
             await failed(gen)
         }
     }

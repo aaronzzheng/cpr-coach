@@ -46,6 +46,7 @@ nonisolated enum RelayEvent: Sendable {
     case imuIn
     case heartRate(Int)
     case socket(LaptopSocket.State)
+    case socketError(String)
     case sent
     case dropped
     case command(WatchCommand)

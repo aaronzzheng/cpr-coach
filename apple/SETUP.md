@@ -10,80 +10,47 @@ Your Xcode 27 can still target watchOS 10 (its watchOS SDK supports deployment b
 
 ---
 
-## 1. Create the Xcode project (≈5 min)
+## 1. One-time Mac setup (≈5 min)
 
-1. Open **Xcode → File → New → Project…**
-2. Pick the **watchOS** tab → **App** → **Next**.
-3. Fill in:
-   - Product Name: **`CPRCoach`** (exactly, it matters for the install script)
-   - Team: your **Personal Team** (a free Apple ID works) — add it via *Add Account…* if missing
-   - Organization Identifier: e.g. `com.yourname`
-   - Watch App type: **Watch App with New Companion iOS App**
-   - Interface: **SwiftUI**, Language: **Swift**
-   - Leave *Include Tests* unchecked
-4. **Next** → navigate to `cpr-coach/apple/` → make sure *Create Git repository* is **unchecked** → **Create**.
-
-   You should now have `cpr-coach/apple/CPRCoach/CPRCoach.xcodeproj`.
-
-5. **Quit Xcode**, then in Terminal:
+1. Install XcodeGen, which generates the Xcode project from `apple/project.yml`:
 
    ```bash
-   cd cpr-coach/apple && ./install-sources.sh
+   brew install xcodegen
    ```
 
-   This replaces Xcode's template files with the real ones. Reopen `CPRCoach.xcodeproj`.
+2. **Xcode → Settings… → Accounts → +** → sign in with your Apple ID (a free one works). Your *Personal Team* appears in the list.
+3. Find your team ID: in that Accounts pane select the team; or run
 
-## 2. Configure the targets (≈10 min)
+   ```bash
+   defaults read com.apple.dt.Xcode IDEProvisioningTeamByIdentifier | grep -E "teamID|teamName"
+   ```
 
-Click the blue **CPRCoach** project icon at the top of the file navigator, then work through each target in the left column of the editor.
+4. Save your signing settings (the prefix must be unique to you, e.g. your GitHub name):
 
-### Watch target — "CPRCoach Watch App"
+   ```bash
+   make apple-signing TEAM=<your team ID> PREFIX=com.yourname
+   ```
 
-1. **General** tab → *Minimum Deployments* → **watchOS 10.0**.
-2. **Signing & Capabilities** tab:
-   - Team: your Personal Team. Bundle ID should be `com.yourname.CPRCoach.watchkitapp` (Xcode fills it in).
-   - Click **+ Capability** → **HealthKit**.
-   - Click **+ Capability** → **Background Modes** → tick **Workout processing**.
-3. **Info** tab → hover any row under *Custom Target Properties* → click **+** and add these three (type the name, pick it from the list, then enter the text as the value):
+   This writes `apple/Config/Local.xcconfig`, which is git-ignored, so each teammate keeps their own.
 
-   | Key | Value |
-   |---|---|
-   | Privacy - Health Share Usage Description | `Reads your heart rate during CPR practice.` |
-   | Privacy - Health Update Usage Description | `Saves your CPR practice as a workout.` |
-   | Privacy - Motion Usage Description | `Measures chest compression rate and depth from wrist motion.` |
+Everything else (watchOS 10.0 target for the Series 5, HealthKit, Workout background mode, every Info.plist permission string, App Transport Security for `ws://`) is already in `project.yml`.
+To open the project in Xcode: `make apple-project && open apple/CPRCoach.xcodeproj`.
 
-### iOS target — "CPRCoach"
-
-1. **General** tab → *Minimum Deployments* → **iOS 17.0**.
-2. **Signing & Capabilities** tab:
-   - Team: your Personal Team.
-   - **+ Capability** → **HealthKit** (needed for the watch's Health permission flow).
-3. **Info** tab → add:
-
-   | Key | Type | Value |
-   |---|---|---|
-   | Privacy - Local Network Usage Description | String | `Connects to the CPR Coach laptop on your local network.` |
-   | Privacy - Health Share Usage Description | String | `Reads your heart rate during CPR practice.` |
-   | Privacy - Health Update Usage Description | String | `Saves your CPR practice as a workout.` |
-   | App Transport Security Settings | Dictionary | *(add the two children below)* |
-
-   Expand **App Transport Security Settings** (click its triangle), hover it, click **+** twice and add:
-   - **Allows Local Networking** → `YES`
-   - **Allow Arbitrary Loads** → `YES` (hackathon only — lets plain `ws://` reach a raw IP)
-
-4. **Build check:** pick the **CPRCoach** scheme and *Any iOS Device* at the top, then **Product → Build** (⌘B). Then switch to the **CPRCoach Watch App** scheme and build again. Both should succeed.
-   If HealthKit makes signing fail with a free account, remove the HealthKit capability from both targets and build again. The app still streams motion data; it just can't keep running at full rate with the screen off, so keep your wrist turned up.
-
-## 3. Devices (≈10–20 min, mostly waiting)
+## 2. Phone and watch (≈10–20 min, mostly waiting)
 
 1. **iPhone:** Settings → Privacy & Security → **Developer Mode** → on → restart → confirm.
-2. Connect the iPhone to the Mac with a cable. Unlock it and tap **Trust**.
-3. **Watch:** keep it on its charger, near the phone, **unlocked**. In Xcode → **Window → Devices and Simulators**, wait for the watch to appear under the iPhone (it may say "Preparing…" for several minutes).
-4. **Watch:** Settings → Privacy & Security → **Developer Mode** → on (this option shows up once Xcode has talked to the watch; the watch restarts).
-5. Run the **CPRCoach** scheme on the **iPhone** (▶︎). First time with a free account: iPhone → Settings → General → **VPN & Device Management** → your Apple ID → **Trust**. Run again.
-6. Run the **CPRCoach Watch App** scheme on the **watch**. The first install is slow (5–15 minutes). If it stalls, see Troubleshooting below.
+2. Connect the iPhone to the Mac with a cable, unlock it and tap **Trust**.
+3. Build, sign and install (the watch app is embedded in the iPhone app):
 
-## 4. Connect everything
+   ```bash
+   make apple-install
+   ```
+
+   The first time, iPhone → Settings → General → **VPN & Device Management** → your Apple ID → **Trust**.
+4. **Watch:** keep it on its charger, near the phone, unlocked. On the iPhone open the **Watch** app → *My Watch* → scroll to **CPR Coach** → **Install** (if it didn't install automatically).
+5. **Watch:** Settings → Privacy & Security → **Developer Mode** → on, if it asks (the watch restarts).
+
+## 3. Connect everything
 
 1. On the Mac: `make dev` (from `cpr-coach/`). Allow incoming connections if macOS asks about Python.
 2. Get the laptop's IP:
@@ -105,8 +72,9 @@ Click the blue **CPRCoach** project icon at the top of the file navigator, then 
 | iPhone app stuck on *connecting…* | Hackathon Wi-Fi often blocks device-to-device traffic. Turn on the iPhone's **Personal Hotspot**, join it from the Mac, run `ipconfig getifaddr en0` again (you'll get something like `172.20.10.x`), and use that address. |
 | Still can't connect | macOS firewall: System Settings → Network → Firewall → allow Python. Check `curl http://<IP>:8000/api/health` from another device. |
 | Watch says *Phone: not reachable* | Open the iPhone app and keep it in the foreground. Bluetooth must be on. |
-| Watch never appears in Xcode / install hangs | Mac and iPhone on the same network (the hotspot trick works here too), watch unlocked and on its charger, and **Window → Devices and Simulators → watch → Unpair/Re-pair in Xcode** as a last resort. |
+| Watch app never installs | Mac and iPhone on the same network (the hotspot trick works here too), watch unlocked and on its charger, and **Window → Devices and Simulators → watch → Unpair/Re-pair in Xcode** as a last resort. |
 | "Could not launch… untrusted developer" | iPhone → Settings → General → VPN & Device Management → Trust. |
+| `make apple-install`: signing / provisioning error | Check `apple/Config/Local.xcconfig` has your team ID, and that the prefix is unique (free teams can't reuse a bundle ID someone else registered). If HealthKit is refused for your account, delete the two `com.apple.developer.healthkit*` lines in `project.yml` and run again. |
 | Watch haptic metronome misses beats | Turn on **Haptic every 2 beats** on the watch. The laptop's audio metronome is the primary one. |
 | Depth reads too high or low | Expected before calibration (M4). The ruler calibration fixes the scale. |
 | App stops working after 7 days | Free-account builds expire. Run from Xcode again. |
@@ -115,6 +83,7 @@ Click the blue **CPRCoach** project icon at the top of the file navigator, then 
 
 | File | Target | Role |
 |---|---|---|
+| `project.yml` | both | XcodeGen spec: targets, deployment versions, capabilities, Info.plist keys |
 | `CPRCoachWatchApp.swift` | Watch | App entry + `WatchModel` that ties everything together |
 | `ContentView.swift` | Watch | Start/Stop, status, metronome toggles |
 | `WorkoutManager.swift` | Watch | HealthKit workout session (keeps sensors at full rate) + heart rate |

@@ -9,7 +9,7 @@ struct ContentView: View {
         NavigationStack {
             Form {
                 Section("Laptop") {
-                    TextField("ws://LAPTOP_IP:8000/ingest", text: $address)
+                    TextField("Laptop IP, e.g. 192.168.1.20", text: $address)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -19,6 +19,9 @@ struct ContentView: View {
                     }
                     LabeledContent("Socket", value: model.socketState.label)
                         .foregroundStyle(model.socketState == .connected ? .green : .secondary)
+                    if let error = model.addressError ?? model.lastSocketError {
+                        Text(error).font(.footnote).foregroundStyle(.red)
+                    }
                 }
 
                 Section("Watch") {

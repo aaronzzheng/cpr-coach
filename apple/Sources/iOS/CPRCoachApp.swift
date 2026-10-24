@@ -27,6 +27,8 @@ final class RelayModel {
     var outPerSecond = 0
     var droppedTotal = 0
     var lastHeartRate: Int?
+    var addressError: String?
+    var lastSocketError: String?
 
     @ObservationIgnored private let watch: WatchLink
     @ObservationIgnored private let socket: LaptopSocket
@@ -63,9 +65,12 @@ final class RelayModel {
     }
 
     func connect(address: String) {
-        guard let url = URL(string: address.trimmingCharacters(in: .whitespaces)),
-              url.scheme == "ws" || url.scheme == "wss"
-        else { return }
+        guard let url = laptopURL(from: address) else {
+            addressError = "Enter the laptop's address, e.g. 192.168.1.20 or ws://192.168.1.20:8000/ingest"
+            return
+        }
+        addressError = nil
+        lastSocketError = nil
         wantConnected = true
         UIApplication.shared.isIdleTimerDisabled = true
         Task { await socket.connect(to: url) }
@@ -103,10 +108,27 @@ final class RelayModel {
             watchReachable = reachable
         case .imuIn: inCount += 1
         case .heartRate(let bpm): lastHeartRate = bpm
-        case .socket(let s): socketState = s
+        case .socket(let s):
+            socketState = s
+            if s == .connected { lastSocketError = nil }
+        case .socketError(let message): lastSocketError = message
         case .sent: outCount += 1
         case .dropped: droppedTotal += 1
         case .command(let cmd): watch.send(cmd)
         }
     }
+}
+
+/// Accepts "192.168.1.20", "192.168.1.20:8000" or a full "ws://…/ingest" URL and fills in the
+/// defaults (ws scheme, port 8000, /ingest path).
+nonisolated func laptopURL(from address: String) -> URL? {
+    var text = address.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !text.contains("://") { text = "ws://" + text }
+    guard var c = URLComponents(string: text), let host = c.host, !host.isEmpty else { return nil }
+    if c.scheme == "http" { c.scheme = "ws" }
+    if c.scheme == "https" { c.scheme = "wss" }
+    guard c.scheme == "ws" || c.scheme == "wss" else { return nil }
+    if c.port == nil { c.port = 8000 }
+    if c.path.isEmpty || c.path == "/" { c.path = "/ingest" }
+    return c.url
 }

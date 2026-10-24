@@ -2,7 +2,7 @@
 PY := backend/.venv/bin/python
 SCENARIO ?= good
 
-.PHONY: setup dev demo backend web sim record replay test lint build swift-check
+.PHONY: setup dev demo backend web sim record replay test lint build swift-check apple-project apple-signing apple-install apple-install-phone
 
 setup:
 	cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
@@ -53,9 +53,33 @@ build:
 	cd web && npm run build
 
 # Typecheck the Swift sources against the watchOS 10 / iOS 17 SDKs (no Xcode project needed).
-WATCH_SRC := $(firstword $(wildcard apple/Sources/Watch) $(wildcard apple/CPRCoach/*Watch\ App))
-IOS_SRC := $(firstword $(wildcard apple/Sources/iOS) $(wildcard apple/CPRCoach/CPRCoach))
 swift-check:
-	xcrun --sdk watchos swiftc -typecheck -parse-as-library -swift-version 6 -target arm64_32-apple-watchos10.0 "$(WATCH_SRC)"/*.swift
-	xcrun --sdk iphoneos swiftc -typecheck -parse-as-library -swift-version 6 -target arm64-apple-ios17.0 "$(IOS_SRC)"/*.swift
+	xcrun --sdk watchos swiftc -typecheck -parse-as-library -swift-version 6 -target arm64_32-apple-watchos10.0 apple/Sources/Watch/*.swift
+	xcrun --sdk iphoneos swiftc -typecheck -parse-as-library -swift-version 6 -target arm64-apple-ios17.0 apple/Sources/iOS/*.swift
 	@echo "Swift sources typecheck OK"
+
+# Generate apple/CPRCoach.xcodeproj from apple/project.yml (brew install xcodegen).
+apple-project:
+	cd apple && xcodegen generate --spec project.yml
+
+# Write your signing settings: make apple-signing TEAM=ABCDE12345 PREFIX=com.yourname
+apple-signing:
+	@test -n "$(TEAM)" -a -n "$(PREFIX)" || (echo "usage: make apple-signing TEAM=<team id> PREFIX=com.yourname"; exit 1)
+	printf 'DEVELOPMENT_TEAM = $(TEAM)\nBUNDLE_ID_PREFIX = $(PREFIX)\n' > apple/Config/Local.xcconfig
+	@echo "wrote apple/Config/Local.xcconfig"
+
+# Build, sign and install the iPhone relay (with the watch app inside) on a connected iPhone.
+# DEVICE defaults to the first connected physical iPhone.
+DEVICE ?= $(shell xcrun devicectl list devices 2>/dev/null | awk '/iPhone/ && /connected|available/ && !/simulated/ {for(i=1;i<=NF;i++) if ($$i ~ /^[0-9A-F]{8}-[0-9A-F]{16}$$/) print $$i}' | head -1)
+apple-install: apple-project
+	@test -n "$(DEVICE)" || (echo "No iPhone connected"; exit 1)
+	xcodebuild -project apple/CPRCoach.xcodeproj -scheme CPRCoach -configuration Debug \
+	  -destination 'platform=iOS,id=$(DEVICE)' -derivedDataPath apple/.build -allowProvisioningUpdates build
+	xcrun devicectl device install app --device $(DEVICE) apple/.build/Build/Products/Debug-iphoneos/CPRCoach.app
+
+# iPhone relay only (no watch app inside): works before the watch is registered to your team.
+apple-install-phone: apple-project
+	@test -n "$(DEVICE)" || (echo "No iPhone connected"; exit 1)
+	xcodebuild -project apple/CPRCoach.xcodeproj -scheme CPRCoachPhoneOnly -configuration Debug \
+	  -destination 'platform=iOS,id=$(DEVICE)' -derivedDataPath apple/.build -allowProvisioningUpdates build
+	xcrun devicectl device install app --device $(DEVICE) apple/.build/Build/Products/Debug-iphoneos/CPRCoachPhoneOnly.app
