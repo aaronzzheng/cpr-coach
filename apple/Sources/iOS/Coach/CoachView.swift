@@ -123,7 +123,7 @@ private struct TopBar: View {
         HStack(spacing: 16) {
             SourceDot(label: tr("Watch"), on: coach.watchStreaming)
                 .onLongPressGesture(minimumDuration: 1) { coach.toggleDemoReplay() }
-                .sensoryFeedback(.success, trigger: coach.demoReplay)
+                .sensoryFeedback(.success, trigger: coach.demoReplayStep)
             SourceDot(label: tr("Arm in view"), on: coach.posture?.visible == true)
             Spacer(minLength: 0)
             if let since = coach.simulatedCallSince, coach.phase == .running {

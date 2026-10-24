@@ -51,6 +51,8 @@ final class CoachModel {
     var triage: TriageStep?
     /// Recorded watch session playing in place of the live watch (stage backup).
     var demoReplay = false
+    /// Bumped on every long press, for a haptic each time.
+    var demoReplayStep = 0
     /// Who is being resuscitated; sets the depth targets.
     var patient: PatientProfile = .adult { didSet { PatientProfile.current = patient } }
     /// 30 compressions then 2 rescue breaths, for trained rescuers (off = hands-only CPR).
@@ -161,14 +163,16 @@ final class CoachModel {
         }
     }
 
-    /// Long-press on the watch status: play the recorded session instead of the live watch.
+    /// Long-press on the watch status: off → recorded real session → tiring rescuer → off.
     func toggleDemoReplay() {
-        if replay.running {
-            replay.stop()
-        } else {
-            replay.start { [weak self] data in self?.ingest(data, replayed: true) }
+        let deliver: @MainActor (Data) -> Void = { [weak self] data in self?.ingest(data, replayed: true) }
+        switch replay.session {
+        case nil: replay.start(.good, deliver: deliver)
+        case .good?: replay.start(.fatigue, deliver: deliver)
+        case .fatigue?: replay.stop()
         }
         demoReplay = replay.running
+        demoReplayStep += 1
     }
 
     func heartRate(_ bpm: Int) {
