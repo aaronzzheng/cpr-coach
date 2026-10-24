@@ -72,6 +72,7 @@ struct CoachView: View {
                 if coach.phase == .summary, let s = coach.summary { SummarySheet(summary: s) }
             }
         }
+        .simulatedCallOverlay(coach)
         .preferredColorScheme(.dark)
         .task { await coach.startCamera() }
     }
@@ -208,7 +209,7 @@ private struct RunningControls: View {
         @Bindable var coach = coach
         HStack(spacing: 10) {
             if coach.mode == .emergency {
-                GlassButton(symbol: "phone.fill", on: true, label: "Call \(CoachModel.emergencyNumber)") { callEmergency() }
+                GlassButton(symbol: "phone.fill", on: true, label: "Call \(CoachModel.emergencyNumber)") { coach.callEmergency() }
             }
             GlassButton(symbol: "metronome.fill", on: coach.metronomeOn, label: "Metronome") { coach.metronomeOn.toggle() }
             GlassButton(symbol: coach.muted ? "speaker.slash.fill" : "speaker.wave.2.fill", on: !coach.muted, label: "Voice coach") {
@@ -460,7 +461,7 @@ private struct SetupCard: View {
                 .padding(14)
                 .background(Palette.urgent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
-            .fullScreenCover(isPresented: $showEmergency) { EmergencySheet() }
+            .fullScreenCover(isPresented: $showEmergency) { EmergencySheet().simulatedCallOverlay(coach) }
             Text("Ready to practice").font(.system(size: 28, weight: .bold)).tracking(-0.6)
             Text("Prop the phone up beside you so the camera sees you from the side, arms down to the chest.")
                 .font(.subheadline).foregroundStyle(Palette.muted)
@@ -653,8 +654,53 @@ private struct Stat: View {
 // MARK: Emergency
 
 @MainActor
-func callEmergency() {
-    if let url = URL(string: "tel://\(CoachModel.emergencyNumber)") { UIApplication.shared.open(url) }
+/// Stands in for the phone call in demo builds: shows what would happen, dials nothing.
+private struct SimulatedCallBanner: View {
+    @Environment(CoachModel.self) private var coach
+    let since: Date
+
+    var body: some View {
+        VStack {
+            HStack(spacing: 12) {
+                Image(systemName: "phone.fill")
+                    .font(.headline).foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .background(Palette.good, in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text("Calling \(CoachModel.emergencyNumber)").font(.headline).foregroundStyle(Palette.text)
+                        Text(since, style: .timer).font(.subheadline.monospacedDigit()).foregroundStyle(Palette.muted)
+                    }
+                    Text("Demo only. No call is placed.").font(.caption).foregroundStyle(Palette.muted)
+                }
+                Spacer(minLength: 8)
+                Button { coach.endSimulatedCall() } label: {
+                    Image(systemName: "phone.down.fill")
+                        .font(.headline).foregroundStyle(.white)
+                        .frame(width: 40, height: 40)
+                        .background(Palette.urgent, in: Circle())
+                }
+                .accessibilityLabel("End demo call")
+            }
+            .padding(12)
+            .background(Palette.surface1, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Palette.surface2, lineWidth: 1))
+            .padding(.horizontal, 12)
+            .shadow(color: .black.opacity(0.4), radius: 20, y: 8)
+            Spacer()
+        }
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+}
+
+extension View {
+    /// Shows the demo call banner on top of this view while a simulated call is active.
+    func simulatedCallOverlay(_ coach: CoachModel) -> some View {
+        overlay {
+            if let since = coach.simulatedCallSince { SimulatedCallBanner(since: since) }
+        }
+        .animation(.spring(duration: 0.35), value: coach.simulatedCallSince)
+    }
 }
 
 /// Two steps, in order: get help coming, then start compressions. No setup, no countdown.
@@ -680,7 +726,7 @@ private struct EmergencySheet: View {
                     }
                     EmergencyStep(number: 1, title: "Call \(CoachModel.emergencyNumber)",
                                   detail: "Put the call on speaker. Say someone collapsed and isn't breathing normally. Send anyone nearby for an AED.") {
-                        Button { callEmergency() } label: {
+                        Button { coach.callEmergency() } label: {
                             Label("Call \(CoachModel.emergencyNumber)", systemImage: "phone.fill")
                                 .font(.title3.weight(.semibold))
                                 .frame(maxWidth: .infinity, minHeight: 58)
@@ -750,7 +796,7 @@ private struct EmergencySummary: View {
                         .background(Palette.urgent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 HStack(spacing: 12) {
-                    Button { callEmergency() } label: {
+                    Button { coach.callEmergency() } label: {
                         Label("Call \(CoachModel.emergencyNumber)", systemImage: "phone.fill").frame(maxWidth: .infinity, minHeight: 48)
                             .background(Palette.surface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }

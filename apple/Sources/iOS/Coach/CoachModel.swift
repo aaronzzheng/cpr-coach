@@ -21,6 +21,8 @@ final class CoachModel {
     var elapsed = 0.0
     var summary: SessionSummary?
     var debrief: Debrief?
+    /// When the demo emergency call started; nil when no call is showing.
+    var simulatedCallSince: Date?
     var metronomeOn = true {
         didSet {
             if phase == .running { metronomeOn ? audio.startMetronome(bpm: Targets.rateTarget) : audio.stopMetronome() }
@@ -179,6 +181,15 @@ final class CoachModel {
         prepare()
         beginRunning(voice: "Push hard and fast in the center of the chest. Follow the beat. Don't stop.")
     }
+
+    /// Hackathon build: never dial. Shows a demo call banner and says what would happen instead.
+    func callEmergency() {
+        guard simulatedCallSince == nil else { return }
+        simulatedCallSince = Date()
+        audio.say("Demo call. In a real emergency, this would call \(Self.emergencyNumber).", priority: 0)
+    }
+
+    func endSimulatedCall() { simulatedCallSince = nil }
 
     /// The local emergency number for the phone's region.
     static var emergencyNumber: String {
