@@ -27,6 +27,7 @@ export class CameraPipeline {
   private lastVideoTime = -1;
   private frames: number[] = [];
   private newCompressions: CameraCompression[] = [];
+  private startToken = 0;
 
   constructor(
     private readonly video: HTMLVideoElement,
@@ -35,20 +36,30 @@ export class CameraPipeline {
 
   async start(): Promise<void> {
     if (this.status === "on" || this.status === "starting") return;
+    // stop() bumps the token, so a start that finishes after being cancelled (e.g. React's
+    // dev-mode double mount) cleans up after itself instead of hijacking the shared <video>.
+    const token = ++this.startToken;
     this.status = "starting";
     this.error = null;
     try {
       landmarkerPromise ??= createPoseLandmarker();
-      this.stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: POSE.videoWidth, height: POSE.videoHeight },
         audio: false,
       });
-      this.video.srcObject = this.stream;
+      if (token !== this.startToken) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      this.stream = stream;
+      this.video.srcObject = stream;
       await this.video.play();
       const landmarker = await landmarkerPromise;
+      if (token !== this.startToken) return;
       this.status = "on";
       this.loop(landmarker);
     } catch (err) {
+      if (token !== this.startToken) return;
       this.stop();
       this.status = "error";
       this.error = err instanceof Error ? err.message : String(err);
@@ -56,10 +67,12 @@ export class CameraPipeline {
   }
 
   stop(): void {
+    this.startToken++;
     cancelAnimationFrame(this.raf);
     this.stream?.getTracks().forEach((t) => t.stop());
+    // Only detach our own stream; another pipeline may own the <video> by now.
+    if (this.stream && this.video.srcObject === this.stream) this.video.srcObject = null;
     this.stream = null;
-    this.video.srcObject = null;
     this.posture = null;
     this.status = "off";
     this.canvas.getContext("2d")?.clearRect(0, 0, this.canvas.width, this.canvas.height);
