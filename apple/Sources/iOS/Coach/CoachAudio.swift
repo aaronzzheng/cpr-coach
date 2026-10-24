@@ -3,8 +3,9 @@
 import AVFoundation
 
 @MainActor
-final class CoachAudio {
+final class CoachAudio: NSObject, AVSpeechSynthesizerDelegate {
     private let synth = AVSpeechSynthesizer()
+    private var lastSpeechEnd = Date.distantPast
     private var currentPriority: Int?
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
@@ -14,8 +15,15 @@ final class CoachAudio {
         didSet { if muted { synth.stopSpeaking(at: .immediate) } }
     }
 
-    init() {
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+    /// The coach is talking, or just stopped (recognition lags speech), so voice commands ignore it.
+    var echoWindow: Bool { synth.isSpeaking || Date().timeIntervalSince(lastSpeechEnd) < 1.2 }
+
+    override init() {
+        super.init()
+        synth.delegate = self
+        // Play-and-record so voice commands can listen while the coach talks and the metronome ticks;
+        // still loud on the speaker and through the silent switch.
+        try? AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .duckOthers])
         try? AVAudioSession.sharedInstance().setActive(true)
         // A phone call (e.g. to emergency services) interrupts our audio; restart the metronome after.
         NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
@@ -23,6 +31,12 @@ final class CoachAudio {
             guard ended else { return }
             MainActor.assumeIsolated {
                 try? AVAudioSession.sharedInstance().setActive(true)
+                if let self, let bpm = self.metronomeBPM { self.startMetronome(bpm: bpm) }
+            }
+        }
+        // Turning the microphone on for voice commands can reconfigure audio and stop this engine.
+        NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
                 if let self, let bpm = self.metronomeBPM { self.startMetronome(bpm: bpm) }
             }
         }
@@ -36,8 +50,9 @@ final class CoachAudio {
             synth.stopSpeaking(at: .immediate)
         }
         let u = AVSpeechUtterance(string: text)
-        u.voice = AVSpeechSynthesisVoice(language: "en-US")
-        u.rate = 0.55
+        let lang = AppLanguage.current
+        u.voice = AVSpeechSynthesisVoice(language: lang.locale.identifier(.bcp47))
+        u.rate = lang == .en ? 0.55 : 0.5
         currentPriority = priority
         synth.speak(u)
     }
@@ -67,6 +82,14 @@ final class CoachAudio {
         try? engine.start()
         player.scheduleBuffer(buf, at: nil, options: .loops)
         player.play()
+    }
+
+    nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, didFinish u: AVSpeechUtterance) {
+        Task { @MainActor in self.lastSpeechEnd = Date() }
+    }
+
+    nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, didCancel u: AVSpeechUtterance) {
+        Task { @MainActor in self.lastSpeechEnd = Date() }
     }
 
     func stopMetronome() {

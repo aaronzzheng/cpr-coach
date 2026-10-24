@@ -91,6 +91,8 @@ nonisolated struct CameraCompression {
     var t: Double
     var instRateCpm: Double?
     var amplitudePx: Double?
+    /// Wrist height (image y, px) at the top of the stroke before this compression.
+    var topY: Double? = nil
 }
 
 /// Zig-zag detector on wrist height: a compression bottom is a local max of image y.
@@ -139,15 +141,58 @@ nonisolated struct CameraCompressionDetector {
             inst = 60 / iv
         }
         var amp: Double?
+        var topY: Double?
         if let top = lastTop, lastBottom == nil || top.t > lastBottom!.t {
             amp = b.y - top.y
+            topY = top.y
             amplitudes.append(amp!)
             if amplitudes.count > PoseConfig.depthWindow { amplitudes.removeFirst() }
         }
         lastBottom = b
         count += 1
-        return CameraCompression(t: b.t, instRateCpm: inst, amplitudePx: amp)
+        return CameraCompression(t: b.t, instRateCpm: inst, amplitudePx: amp, topY: topY)
     }
+}
+
+// MARK: Recoil
+
+/// Incomplete chest recoil (leaning): the hands stop short of the chest's resting height between
+/// compressions. The patient and the phone don't move, so the highest wrist positions over the
+/// last stretch of compressions mark the chest at rest; a stroke whose top is clearly below that
+/// is leaning. The camera's learned scale (DepthFusion) turns the pixel gap into centimetres.
+nonisolated struct RecoilTracker {
+    private var tops: [(t: Double, y: Double)] = []
+    private(set) var recent: [Bool] = [] // true = full recoil
+    private(set) var full = 0, total = 0
+    private(set) var lastShortfallCm: Double?
+
+    mutating func reset() { self = RecoilTracker() }
+
+    /// A compression's preceding top (image y, down positive). Returns how far short it stopped (cm).
+    @discardableResult
+    mutating func push(t: Double, topY: Double, cmPerPx: Double) -> Double? {
+        tops.append((t, topY))
+        tops.removeAll { t - $0.t > RecoilConfig.referenceWindowS }
+        guard tops.count >= RecoilConfig.minTops else { return nil }
+        // Chest at rest = a high percentile of the stroke tops (smallest y), robust to one-off spikes.
+        let ys = tops.map(\.y).sorted()
+        let rest = ys[Int(Double(ys.count - 1) * RecoilConfig.restPercentile)]
+        let shortfall = max(0, (topY - rest) * cmPerPx)
+        lastShortfallCm = shortfall
+        let ok = shortfall < RecoilConfig.maxShortfallCm
+        recent.append(ok)
+        if recent.count > RecoilConfig.window { recent.removeFirst() }
+        total += 1
+        if ok { full += 1 }
+        return shortfall
+    }
+
+    /// Leaning on most of the recent compressions.
+    var incomplete: Bool {
+        recent.count >= RecoilConfig.window && recent.filter { !$0 }.count * 2 >= recent.count
+    }
+
+    var fullPct: Double? { total >= RecoilConfig.window ? Double(full) / Double(total) : nil }
 }
 
 // MARK: Fusion
@@ -199,6 +244,7 @@ nonisolated struct LiveState {
     var heartRate: Double?
     var swapRecommended = false
     var fatigueScore: Double?
+    var recoilIncomplete = false
 }
 
 nonisolated func cameraCmPerPx(_ cam: CameraSnapshot) -> Double? {
@@ -266,7 +312,7 @@ nonisolated func isAllGreen(_ l: LiveState) -> Bool {
     guard let age = l.lastCompressionAge, age < CoachConfig.noCompression,
           let r = l.rateCpm, r >= Targets.rateMin, r <= Targets.rateMax else { return false }
     if let d = coachableDepth(l), d < Targets.depthMin || d > Targets.depthMax { return false }
-    return !l.elbowViolation && !l.alignViolation && !l.swapRecommended
+    return !l.elbowViolation && !l.alignViolation && !l.swapRecommended && !l.recoilIncomplete
 }
 
 nonisolated let coachRules: [CoachRule] = [
@@ -282,9 +328,11 @@ nonisolated let coachRules: [CoachRule] = [
               duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in (l.rateCpm ?? 999) < Targets.rateMin },
     CoachRule(id: "too_fast", priority: 5, line: "Slow down.", banner: "Slow down", tone: .warning,
               duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in (l.rateCpm ?? 0) > Targets.rateMax },
-    CoachRule(id: "elbows_bent", priority: 6, line: "Lock your elbows.", banner: "Lock your elbows", tone: .warning,
+    CoachRule(id: "recoil", priority: 6, line: "Let the chest come all the way up.", banner: "Let the chest rise", tone: .warning,
+              duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in l.recoilIncomplete },
+    CoachRule(id: "elbows_bent", priority: 7, line: "Lock your elbows.", banner: "Lock your elbows", tone: .warning,
               duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in l.elbowViolation },
-    CoachRule(id: "not_over_hands", priority: 7, line: "Shoulders over your hands.", banner: "Shoulders over hands", tone: .warning,
+    CoachRule(id: "not_over_hands", priority: 8, line: "Shoulders over your hands.", banner: "Shoulders over hands", tone: .warning,
               duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in l.alignViolation },
     CoachRule(id: "too_deep", priority: 9, line: "A little less force.", banner: "Less force", tone: .warning,
               duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in (coachableDepth(l) ?? 0) > CoachConfig.tooDeepCm },
@@ -320,9 +368,9 @@ nonisolated struct CoachEngine {
 // MARK: Scoring
 
 /// PRD §8.5; fractions 0–1, missing terms dropped and the rest reweighted. No rate data → 0.
-nonisolated func computeScore(ratePct: Double?, depthPct: Double?, ccf: Double?, elbowPct: Double?, alignPct: Double?) -> Double {
+nonisolated func computeScore(ratePct: Double?, depthPct: Double?, ccf: Double?, elbowPct: Double?, alignPct: Double?, recoilPct: Double? = nil) -> Double {
     guard ratePct != nil else { return 0 }
-    let terms: [(Double, Double?)] = [(30, ratePct), (30, depthPct), (20, ccf.map { min($0 / Targets.ccfTarget, 1) }), (10, elbowPct), (10, alignPct)]
+    let terms: [(Double, Double?)] = [(30, ratePct), (30, depthPct), (20, ccf.map { min($0 / Targets.ccfTarget, 1) }), (10, elbowPct), (10, alignPct), (10, recoilPct)]
     let used = terms.compactMap { w, v in v.map { (w, $0) } }
     let total = used.reduce(0) { $0 + $1.0 }
     return total > 0 ? 100 * used.reduce(0) { $0 + $1.0 * $1.1 } / total : 0
@@ -348,6 +396,7 @@ nonisolated struct SessionSummary {
     var elbowPct: Double?
     var alignPct: Double?
     var source: RateSource?
+    var recoilPct: Double? = nil
 }
 
 /// Session clock, pauses/CCF, per-compression grading and posture percentages.
@@ -408,6 +457,8 @@ nonisolated struct SessionTracker {
         return clockStart.map { max(0, now - $0) } ?? 0
     }
 
+    var recoilPct: Double?
+
     mutating func finish(_ now: Double) -> SessionSummary {
         let el = elapsed(now)
         func frac(_ xs: [Bool]) -> Double? { xs.isEmpty ? nil : Double(xs.filter { $0 }.count) / Double(xs.count) }
@@ -416,10 +467,10 @@ nonisolated struct SessionTracker {
         let ccf = el > 0 ? max(0, (el - handsOff) / el) : nil
         let elbow = posture ? Double(lockedTicks) / Double(postureTicks) : nil
         let align = posture ? Double(alignedTicks) / Double(postureTicks) : nil
-        let score = computeScore(ratePct: ratePct, depthPct: depthPct, ccf: ccf, elbowPct: elbow, alignPct: align)
+        let score = computeScore(ratePct: ratePct, depthPct: depthPct, ccf: ccf, elbowPct: elbow, alignPct: align, recoilPct: recoilPct)
         return SessionSummary(score: score, grade: gradeLetter(score), compressions: graded, elapsed: el,
                               ratePct: ratePct, depthPct: depthPct, depthEstimated: depthEstimated, ccf: ccf,
                               pauses: pauseCount, longestPause: longestPause, avgRate: median(rates), avgDepth: median(depths),
-                              elbowPct: elbow, alignPct: align, source: source)
+                              elbowPct: elbow, alignPct: align, source: source, recoilPct: recoilPct)
     }
 }

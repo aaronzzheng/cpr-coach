@@ -83,3 +83,11 @@ nonisolated enum PoseConfig {
     static let rateWindow = 5
     static let depthWindow = 5
 }
+
+nonisolated enum RecoilConfig {
+    static let referenceWindowS = 20.0  // seconds of stroke tops that define the chest at rest
+    static let minTops = 8
+    static let restPercentile = 0.15    // of top heights, highest first
+    static let maxShortfallCm = 1.0     // a top this far below rest counts as leaning
+    static let window = 8               // compressions; leaning on half of them triggers the cue
+}

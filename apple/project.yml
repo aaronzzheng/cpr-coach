@@ -47,6 +47,8 @@ targetTemplates:
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: Connects to the CPR Coach laptop on your local network.
         INFOPLIST_KEY_NSCameraUsageDescription: Watches your arm position from the side to coach elbows and shoulders. Video never leaves the phone.
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: Listens for hands-free voice commands like "swap" or "how am I doing" while your hands are on the chest.
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: Understands your voice commands on the phone, so you can keep both hands on the chest.
 
 targets:
   CPRCoach:

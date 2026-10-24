@@ -71,6 +71,7 @@ struct CoachView: View {
                 .padding(.bottom, 8)
                 if coach.phase == .summary, let s = coach.summary { SummarySheet(summary: s) }
             }
+            .id(coach.language) // re-render every string when the language changes
         }
         .simulatedCallOverlay(coach)
         .preferredColorScheme(.dark)
@@ -85,13 +86,14 @@ struct CoachView: View {
         case .countdown, .running:
             InstructionCard()
             HStack(spacing: 12) {
-                MetricTile(label: "Rate", value: coach.live.rateCpm, digits: 0, unit: "/min",
+                MetricTile(label: tr("Rate"), value: coach.live.rateCpm, digits: 0, unit: tr("/min"),
                            scale: (80, 140), target: (Targets.rateMin, Targets.rateMax),
-                           outWords: ("Too slow", "Too fast"), source: coach.live.rateSource?.rawValue, estimate: false)
-                MetricTile(label: "Depth", value: coach.live.depthCm, digits: 1, unit: "cm",
+                           outWords: (tr("Too slow"), tr("Too fast")), source: coach.live.rateSource.map { tr($0 == .watch ? "Watch" : "Camera") },
+                           estimate: false)
+                MetricTile(label: tr("Depth"), value: coach.live.depthCm, digits: 1, unit: "cm",
                            scale: (0, 8), target: (Targets.depthMin, Targets.depthMax),
-                           outWords: ("Too shallow", "Too deep"),
-                           source: coach.live.depthSource?.rawValue,
+                           outWords: (tr("Too shallow"), tr("Too deep")),
+                           source: coach.live.depthSource.map(depthSourceName),
                            estimate: coach.live.depthEstimate)
             }
             .fixedSize(horizontal: false, vertical: true)
@@ -106,14 +108,15 @@ private struct TopBar: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            SourceDot(label: "Watch", on: coach.watchStreaming)
-            SourceDot(label: "Arm in view", on: coach.posture?.visible == true)
+            SourceDot(label: tr("Watch"), on: coach.watchStreaming)
+            SourceDot(label: tr("Arm in view"), on: coach.posture?.visible == true)
             Spacer(minLength: 0)
+            if coach.listening { ListeningIndicator(heard: coach.heard) }
             if let hr = coach.live.heartRate {
                 Label("\(Int(hr))", systemImage: "heart.fill")
                     .font(.headline.monospacedDigit())
                     .labelStyle(TintedIconLabel(tint: Palette.accent))
-                    .accessibilityLabel("Heart rate \(Int(hr))")
+                    .accessibilityLabel(tr("Heart rate %@", "\(Int(hr))"))
             }
             if coach.phase == .running {
                 Text(clock(coach.elapsed))
@@ -138,7 +141,7 @@ private struct SourceDot: View {
         }
         .foregroundStyle(on ? Palette.muted : Palette.faint)
         .accessibilityElement(children: .combine)
-        .accessibilityValue(on ? "connected" : "not connected")
+        .accessibilityValue(on ? tr("connected") : tr("not connected"))
     }
 }
 
@@ -166,10 +169,10 @@ private struct CameraCard: View {
             } else {
                 VStack(spacing: 8) {
                     Image(systemName: coach.cameraStatus == .denied ? "video.slash" : "video").font(.title2)
-                    Text(coach.cameraStatus == .denied ? "Camera access is off" : "Starting camera")
+                    Text(coach.cameraStatus == .denied ? tr("Camera access is off") : tr("Starting camera"))
                         .font(.headline).foregroundStyle(Palette.text)
                     if coach.cameraStatus == .denied {
-                        Text("Turn it on in Settings › CPR Coach for posture coaching.")
+                        Text(tr("Turn it on in Settings › CPR Coach for posture coaching."))
                             .font(.subheadline).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
                     }
                 }
@@ -209,21 +212,21 @@ private struct RunningControls: View {
         @Bindable var coach = coach
         HStack(spacing: 10) {
             if coach.mode == .emergency {
-                GlassButton(symbol: "phone.fill", on: true, label: "Call \(CoachModel.emergencyNumber)") { coach.callEmergency() }
+                GlassButton(symbol: "phone.fill", on: true, label: tr("Call %@", CoachModel.emergencyNumber)) { coach.callEmergency() }
             }
-            GlassButton(symbol: "metronome.fill", on: coach.metronomeOn, label: "Metronome") { coach.metronomeOn.toggle() }
-            GlassButton(symbol: coach.muted ? "speaker.slash.fill" : "speaker.wave.2.fill", on: !coach.muted, label: "Voice coach") {
+            GlassButton(symbol: "metronome.fill", on: coach.metronomeOn, label: tr("Metronome")) { coach.metronomeOn.toggle() }
+            GlassButton(symbol: coach.muted ? "speaker.slash.fill" : "speaker.wave.2.fill", on: !coach.muted, label: tr("Voice coach")) {
                 coach.muted.toggle()
             }
             Button { coach.stop() } label: {
-                Text("Stop")
+                Text(tr("Stop"))
                     .font(.headline)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 20)
                     .frame(height: 44)
                     .background(Palette.urgent, in: Capsule())
             }
-            .accessibilityHint("Ends the session and shows your score")
+            .accessibilityHint(tr("Ends the session and shows your score"))
         }
     }
 }
@@ -242,7 +245,7 @@ private struct GlassButton: View {
                 .background(.ultraThinMaterial, in: Circle())
         }
         .accessibilityLabel(label)
-        .accessibilityValue(on ? "on" : "off")
+        .accessibilityValue(on ? tr("on") : tr("off"))
     }
 }
 
@@ -253,7 +256,7 @@ private struct InstructionCard: View {
 
     var body: some View {
         let rule = coach.phase == .running ? coach.banner : nil
-        let title = rule?.banner ?? (coach.phase == .running ? "Keep going" : "Get ready")
+        let title = rule.map { tr($0.banner) } ?? (coach.phase == .running ? tr("Keep going") : tr("Get ready"))
         let detail = coach.phase == .running ? instructionDetail(rule?.id, coach.live) : nil
         HStack(spacing: 14) {
             if let rule {
@@ -294,17 +297,27 @@ private struct InstructionCard: View {
 /// One line of specifics under the instruction, from the live numbers (mirrors the dashboard).
 func instructionDetail(_ ruleId: String?, _ l: LiveState) -> String? {
     let rate = l.rateCpm.map { Int($0.rounded()) }
-    let depth = l.depthCm.map { (l.depthEstimate ? "≈" : "") + String(format: "%.1f cm", $0) }
+    let depth = l.depthCm.map { (l.depthEstimate ? "≈" : "") + trNumber($0, digits: 1) + " cm" }
     switch ruleId {
-    case "too_shallow", "too_deep": return depth.map { "Depth \($0). Aim for 5–6 cm." }
-    case "too_slow", "too_fast": return rate.map { "\($0) per minute. Aim for 100–120, follow the beat." }
-    case "elbows_bent": return l.elbowAngleDeg.map { "Elbows at \(Int($0.rounded()))°. Straighten your arms." }
-    case "not_over_hands": return "Lean forward so your shoulders are above your hands."
-    case "swap": return "Hand over to the next person without pausing."
-    case "no_compressions": return "Every second without compressions counts."
+    case "too_shallow", "too_deep": return depth.map { tr("Depth %@. Aim for 5–6 cm.", $0) }
+    case "too_slow", "too_fast": return rate.map { tr("%@ per minute. Aim for 100–120, follow the beat.", "\($0)") }
+    case "elbows_bent": return l.elbowAngleDeg.map { tr("Elbows at %@°. Straighten your arms.", "\(Int($0.rounded()))") }
+    case "recoil": return tr("Lift your weight off the chest between pushes, but keep your hands on it.")
+    case "not_over_hands": return tr("Lean forward so your shoulders are above your hands.")
+    case "swap": return tr("Hand over to the next person without pausing.")
+    case "no_compressions": return tr("Every second without compressions counts.")
     default:
         guard let rate else { return nil }
-        return depth.map { "\(rate) per minute at \($0)." } ?? "\(rate) per minute."
+        return depth.map { tr("%@ per minute at %@.", "\(rate)", $0) } ?? tr("%@ per minute.", "\(rate)")
+    }
+}
+
+func depthSourceName(_ s: DepthSource) -> String {
+    switch s {
+    case .fused: tr("Watch + camera")
+    case .watch: tr("Watch")
+    case .cameraCalibrated: tr("Camera, calibrated")
+    case .cameraEstimate: tr("Camera")
     }
 }
 
@@ -336,7 +349,7 @@ private struct MetricTile: View {
                 chip
             }
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(value.map { (estimate ? "≈" : "") + String(format: "%.\(digits)f", $0) } ?? "—")
+                Text(value.map { (estimate ? "≈" : "") + trNumber($0, digits: digits) } ?? "—")
                     .font(.system(size: 52, weight: .semibold))
                     .tracking(-1.5)
                     .foregroundStyle(value == nil ? Palette.faint : Palette.text)
@@ -348,9 +361,9 @@ private struct MetricTile: View {
             }
             Meter(value: value, scale: scale, target: target, fill: fillColor)
             HStack {
-                Text("Target \(fmt(target.0))–\(fmt(target.1))")
+                Text(tr("Target %@", "\(fmt(target.0))–\(fmt(target.1))"))
                 Spacer(minLength: 4)
-                Text(source.map { $0.capitalized + (estimate ? " est." : "") } ?? "No data")
+                Text(source ?? tr("No data"))
             }
             .font(.caption)
             .foregroundStyle(Palette.faint)
@@ -373,14 +386,14 @@ private struct MetricTile: View {
     @ViewBuilder private var chip: some View {
         switch state {
         case .none: EmptyView()
-        case .estimate: StatusChip(symbol: "camera.fill", text: "Estimate", tint: Palette.muted)
-        case .ok: StatusChip(symbol: "checkmark.circle.fill", text: "On target", tint: Palette.good)
+        case .estimate: StatusChip(symbol: "camera.fill", text: tr("Estimate"), tint: Palette.muted)
+        case .ok: StatusChip(symbol: "checkmark.circle.fill", text: tr("On target"), tint: Palette.good)
         case .low: StatusChip(symbol: "exclamationmark.triangle.fill", text: outWords.0, tint: Palette.warn)
         case .high: StatusChip(symbol: "exclamationmark.triangle.fill", text: outWords.1, tint: Palette.warn)
         }
     }
 
-    private func fmt(_ x: Double) -> String { x == x.rounded() ? String(Int(x)) : String(format: "%.1f", x) }
+    private func fmt(_ x: Double) -> String { x == x.rounded() ? String(Int(x)) : trNumber(x, digits: 1) }
 }
 
 /// Icon + words; collapses to the icon alone (still labelled for VoiceOver) when the tile is narrow.
@@ -451,8 +464,8 @@ private struct SetupCard: View {
                 HStack(spacing: 12) {
                     Image(systemName: "staroflife.fill").font(.title3)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Someone collapsed?").font(.headline)
-                        Text("Call for help and get coached through CPR").font(.footnote).opacity(0.85)
+                        Text(tr("Someone collapsed?")).font(.headline)
+                        Text(tr("Call for help and get coached through CPR")).font(.footnote).opacity(0.85)
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right").font(.subheadline.weight(.semibold)).opacity(0.7)
@@ -462,25 +475,40 @@ private struct SetupCard: View {
                 .background(Palette.urgent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .fullScreenCover(isPresented: $showEmergency) { EmergencySheet().simulatedCallOverlay(coach) }
-            Text("Ready to practice").font(.system(size: 28, weight: .bold)).tracking(-0.6)
-            Text("Prop the phone up beside you so the camera sees you from the side, arms down to the chest.")
+            HStack(alignment: .firstTextBaseline) {
+                Text(tr("Ready to practice")).font(.system(size: 28, weight: .bold)).tracking(-0.6)
+                Spacer(minLength: 8)
+                LanguageMenu()
+            }
+            Text(tr("Prop the phone up beside you so the camera sees you from the side, arms down to the chest."))
                 .font(.subheadline).foregroundStyle(Palette.muted)
             VStack(alignment: .leading, spacing: 8) {
-                Check(done: coach.posture?.visible == true, text: "Shoulder, elbow and wrist in view")
-                Check(done: coach.watchStreaming, text: "Watch connected (adds depth)")
+                Check(done: coach.posture?.visible == true, text: tr("Shoulder, elbow and wrist in view"))
+                Check(done: coach.watchStreaming, text: tr("Watch connected (adds depth)"))
             }
-            HStack(spacing: 10) {
-                PillToggle(symbol: "metronome.fill", text: "Metronome", on: $coach.metronomeOn)
-                PillToggle(symbol: "speaker.wave.2.fill", text: "Voice", on: Binding(get: { !coach.muted }, set: { coach.muted = !$0 }))
+            let metronome = PillToggle(symbol: "metronome.fill", text: tr("Metronome"), on: $coach.metronomeOn)
+            let voice = PillToggle(symbol: "speaker.wave.2.fill", text: tr("Voice"), on: Binding(get: { !coach.muted }, set: { coach.muted = !$0 }))
+            let handsFree = PillToggle(symbol: "mic.fill", text: tr("Hands-free"), on: $coach.handsFree)
+            // One row when it fits; longer languages wrap the third pill.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { metronome; voice; handsFree }
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 10) { metronome; voice }
+                    handsFree
+                }
+            }
+            if coach.handsFree {
+                Text(tr("Say \"swap\", \"how long\", \"how am I doing\" or \"stop\" while you work."))
+                    .font(.footnote).foregroundStyle(Palette.muted)
             }
             Button { coach.start() } label: {
-                Label("Start session", systemImage: "play.fill")
+                Label(tr("Start session"), systemImage: "play.fill")
                     .font(.headline)
                     .frame(maxWidth: .infinity, minHeight: 54)
                     .foregroundStyle(.white)
                     .background(Palette.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
-            Text("Training tool, not a medical device. In an emergency, call your local emergency number first.")
+            Text(tr("Training tool, not a medical device. In an emergency, call your local emergency number first."))
                 .font(.caption).foregroundStyle(Palette.faint)
         }
         .padding(20)
@@ -516,7 +544,119 @@ private struct PillToggle: View {
                 .background(on ? Palette.surface2 : .clear, in: Capsule())
                 .overlay(Capsule().strokeBorder(on ? .clear : Palette.surface2, lineWidth: 1.5))
         }
-        .accessibilityValue(on ? "on" : "off")
+        .accessibilityValue(on ? tr("on") : tr("off"))
+    }
+}
+
+/// Globe menu to switch the coach's language (screen, voice and voice commands) on the spot.
+private struct LanguageMenu: View {
+    @Environment(CoachModel.self) private var coach
+    var body: some View {
+        @Bindable var coach = coach
+        Menu {
+            Picker(tr("Language"), selection: $coach.language) {
+                ForEach(AppLanguage.allCases) { Text($0.nativeName).tag($0) }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "globe")
+                Text(coach.language.nativeName)
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Palette.text)
+            .padding(.horizontal, 12)
+            .frame(height: 34)
+            .background(Palette.surface2, in: Capsule())
+        }
+        .accessibilityLabel(tr("Language"))
+    }
+}
+
+/// Mic + the command just understood, so the rescuer knows they were heard without looking long.
+private struct ListeningIndicator: View {
+    let heard: String?
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: heard == nil ? "mic.fill" : "checkmark")
+                .font(.footnote.weight(.bold))
+                .foregroundStyle(heard == nil ? Palette.accent : Palette.good)
+                .symbolEffect(.pulse, isActive: heard == nil)
+            Text(heard ?? tr("Listening"))
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(heard == nil ? Palette.muted : Palette.text)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 28)
+        .background(Palette.surface1, in: Capsule())
+        .animation(.snappy, value: heard)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// The spoken emergency check, with buttons for when talking isn't possible.
+private struct TriageCard: View {
+    @Environment(CoachModel.self) private var coach
+
+    var body: some View {
+        if let step = coach.triage {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: coach.listening ? "mic.fill" : "questionmark.circle.fill")
+                        .foregroundStyle(Palette.accent)
+                        .symbolEffect(.pulse, isActive: coach.listening && coach.triageAwaitingAnswer)
+                    Text(coach.listening && coach.triageAwaitingAnswer ? tr("Listening — say yes or no") : tr("Check"))
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.muted)
+                    Spacer()
+                    if let heard = coach.heard {
+                        Text(heard).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.good)
+                    }
+                }
+                Text(question(step)).font(.system(size: 24, weight: .bold)).foregroundStyle(Palette.text)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let detail = detail(step) {
+                    Text(detail).font(.body).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
+                }
+                if coach.triageAwaitingAnswer {
+                    HStack(spacing: 12) {
+                        answer(tr("Yes"), yes: true)
+                        answer(tr("No"), yes: false)
+                    }
+                }
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Palette.surface1, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Palette.accent.opacity(0.5), lineWidth: 1.5))
+            .animation(.smooth(duration: 0.25), value: step)
+        }
+    }
+
+    private func answer(_ label: String, yes: Bool) -> some View {
+        Button { coach.answerTriage(yes) } label: {
+            Text(label).font(.title3.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 52)
+                .foregroundStyle(Palette.text)
+                .background(Palette.surface2, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
+
+    private func question(_ s: CoachModel.TriageStep) -> String {
+        switch s {
+        case .responsive: tr("Are they responding?")
+        case .breathing: tr("Are they breathing normally?")
+        case .monitor: tr("Stay with them")
+        case .recovery: tr("Put them on their side")
+        }
+    }
+
+    private func detail(_ s: CoachModel.TriageStep) -> String? {
+        switch s {
+        case .responsive: tr("Tap their shoulders and shout.")
+        case .breathing: tr("Watch the chest for up to 10 seconds. Gasping doesn't count.")
+        case .monitor: tr("Call for help if they get worse, and keep checking their breathing.")
+        case .recovery: tr("Call for help and keep checking their breathing. Start CPR if it stops.")
+        }
     }
 }
 
@@ -538,12 +678,12 @@ private struct SummarySheet: View {
                 VStack(alignment: .leading, spacing: 22) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Session score").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.muted)
+                            Text(tr("Session score")).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.muted)
                             HStack(alignment: .firstTextBaseline, spacing: 2) {
                                 Text("\(Int(s.score.rounded()))").font(.system(size: 88, weight: .bold)).tracking(-4)
                                 Text("/100").font(.title2.weight(.semibold)).foregroundStyle(Palette.faint)
                             }
-                            Text("\(s.compressions) compressions in \(clock(s.elapsed))")
+                            Text(tr("%@ compressions in %@", "\(s.compressions)", clock(s.elapsed)))
                                 .font(.subheadline).foregroundStyle(Palette.muted)
                         }
                         Spacer()
@@ -552,26 +692,27 @@ private struct SummarySheet: View {
                             .foregroundStyle(gradeColor)
                             .frame(width: 76, height: 76)
                             .background(gradeColor.opacity(0.18), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-                            .accessibilityLabel("Grade \(s.grade)")
+                            .accessibilityLabel(tr("Grade %@", s.grade))
                     }
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible())], alignment: .leading, spacing: 18) {
-                        Stat(label: "Rate in range", value: pct(s.ratePct), good: s.ratePct.map { $0 >= 0.8 })
-                        Stat(label: s.depthEstimated ? "Depth in range (est.)" : "Depth in range", value: pct(s.depthPct), good: s.depthPct.map { $0 >= 0.8 })
-                        Stat(label: "Hands on chest", value: pct(s.ccf), good: s.ccf.map { $0 >= 0.8 })
-                        Stat(label: "Pauses", value: s.pauses == 0 ? "None" : "\(s.pauses)", good: s.pauses == 0)
-                        Stat(label: "Average rate", value: s.avgRate.map { "\(Int($0.rounded())) /min" } ?? "—", good: nil)
-                        Stat(label: "Average depth", value: s.avgDepth.map { (s.depthEstimated ? "≈" : "") + String(format: "%.1f cm", $0) } ?? "—", good: nil)
-                        Stat(label: "Elbows locked", value: pct(s.elbowPct), good: s.elbowPct.map { $0 >= 0.8 })
-                        Stat(label: "Shoulders over hands", value: pct(s.alignPct), good: s.alignPct.map { $0 >= 0.8 })
+                        Stat(label: tr("Rate in range"), value: pct(s.ratePct), good: s.ratePct.map { $0 >= 0.8 })
+                        Stat(label: s.depthEstimated ? tr("Depth in range (est.)") : tr("Depth in range"), value: pct(s.depthPct), good: s.depthPct.map { $0 >= 0.8 })
+                        Stat(label: tr("Hands on chest"), value: pct(s.ccf), good: s.ccf.map { $0 >= 0.8 })
+                        Stat(label: tr("Pauses"), value: s.pauses == 0 ? tr("None") : "\(s.pauses)", good: s.pauses == 0)
+                        Stat(label: tr("Average rate"), value: s.avgRate.map { "\(Int($0.rounded())) " + tr("/min") } ?? "—", good: nil)
+                        Stat(label: tr("Average depth"), value: s.avgDepth.map { (s.depthEstimated ? "≈" : "") + trNumber($0, digits: 1) + " cm" } ?? "—", good: nil)
+                        Stat(label: tr("Elbows locked"), value: pct(s.elbowPct), good: s.elbowPct.map { $0 >= 0.8 })
+                        Stat(label: tr("Shoulders over hands"), value: pct(s.alignPct), good: s.alignPct.map { $0 >= 0.8 })
+                        Stat(label: tr("Full recoil"), value: pct(s.recoilPct), good: s.recoilPct.map { $0 >= 0.8 })
                     }
                     DebriefCard(debrief: coach.debrief)
                     HStack(spacing: 12) {
                         Button { coach.backToSetup() } label: {
-                            Text("Done").frame(maxWidth: .infinity, minHeight: 52)
+                            Text(tr("Done")).frame(maxWidth: .infinity, minHeight: 52)
                                 .background(Palette.surface2, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
                         Button { coach.start() } label: {
-                            Label("Go again", systemImage: "arrow.counterclockwise").frame(maxWidth: .infinity, minHeight: 52)
+                            Label(tr("Go again"), systemImage: "arrow.counterclockwise").frame(maxWidth: .infinity, minHeight: 52)
                                 .background(Palette.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
                     }
@@ -605,10 +746,10 @@ private struct DebriefCard: View {
             HStack(spacing: 8) {
                 Image(systemName: debrief?.onDevice == true ? "sparkles" : "text.bubble.fill")
                     .foregroundStyle(Palette.accent)
-                Text("Debrief").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.text)
+                Text(tr("Debrief")).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.text)
                 Spacer()
                 if debrief?.onDevice == true {
-                    Text("On-device AI").font(.caption.weight(.medium)).foregroundStyle(Palette.faint)
+                    Text(tr("On-device AI")).font(.caption.weight(.medium)).foregroundStyle(Palette.faint)
                 }
             }
             if let debrief {
@@ -619,7 +760,7 @@ private struct DebriefCard: View {
             } else {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Reviewing your session…").font(.subheadline).foregroundStyle(Palette.muted)
+                    Text(tr("Reviewing your session…")).font(.subheadline).foregroundStyle(Palette.muted)
                 }
             }
         }
@@ -668,10 +809,10 @@ private struct SimulatedCallBanner: View {
                     .background(Palette.good, in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text("Calling \(CoachModel.emergencyNumber)").font(.headline).foregroundStyle(Palette.text)
+                        Text(tr("Calling %@", CoachModel.emergencyNumber)).font(.headline).foregroundStyle(Palette.text)
                         Text(since, style: .timer).font(.subheadline.monospacedDigit()).foregroundStyle(Palette.muted)
                     }
-                    Text("Demo only. No call is placed.").font(.caption).foregroundStyle(Palette.muted)
+                    Text(tr("Demo only. No call is placed.")).font(.caption).foregroundStyle(Palette.muted)
                 }
                 Spacer(minLength: 8)
                 Button { coach.endSimulatedCall() } label: {
@@ -680,7 +821,7 @@ private struct SimulatedCallBanner: View {
                         .frame(width: 40, height: 40)
                         .background(Palette.urgent, in: Circle())
                 }
-                .accessibilityLabel("End demo call")
+                .accessibilityLabel(tr("End demo call"))
             }
             .padding(12)
             .background(Palette.surface1, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -714,46 +855,52 @@ private struct EmergencySheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     HStack {
-                        Label("Emergency", systemImage: "staroflife.fill")
+                        Label(tr("Emergency"), systemImage: "staroflife.fill")
                             .font(.system(size: 30, weight: .bold))
                             .labelStyle(TintedIconLabel(tint: Palette.urgent))
                         Spacer()
+                        LanguageMenu()
                         Button { dismiss() } label: {
                             Image(systemName: "xmark").font(.headline).foregroundStyle(Palette.muted)
                                 .frame(width: 36, height: 36).background(Palette.surface1, in: Circle())
                         }
-                        .accessibilityLabel("Close")
+                        .accessibilityLabel(tr("Close"))
                     }
-                    EmergencyStep(number: 1, title: "Call \(CoachModel.emergencyNumber)",
-                                  detail: "Put the call on speaker. Say someone collapsed and isn't breathing normally. Send anyone nearby for an AED.") {
+                    TriageCard()
+                    EmergencyStep(number: 1, title: tr("Call %@", CoachModel.emergencyNumber),
+                                  detail: tr("Put the call on speaker. Say someone collapsed and isn't breathing normally. Send anyone nearby for an AED.")) {
                         Button { coach.callEmergency() } label: {
-                            Label("Call \(CoachModel.emergencyNumber)", systemImage: "phone.fill")
+                            Label(tr("Call %@", CoachModel.emergencyNumber), systemImage: "phone.fill")
                                 .font(.title3.weight(.semibold))
                                 .frame(maxWidth: .infinity, minHeight: 58)
                                 .foregroundStyle(.white)
                                 .background(Palette.urgent, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                         }
                     }
-                    EmergencyStep(number: 2, title: "Start compressions",
-                                  detail: "Kneel beside them. Heel of one hand in the center of the chest, other hand on top, arms straight. Push hard and fast, about 5 cm, twice a second.") {
+                    EmergencyStep(number: 2, title: tr("Start compressions"),
+                                  detail: tr("Kneel beside them. Heel of one hand in the center of the chest, other hand on top, arms straight. Push hard and fast, about 5 cm, twice a second.")) {
                         Button {
                             coach.startEmergency()
                             dismiss()
                         } label: {
-                            Label("Start compressions", systemImage: "hand.raised.fill")
+                            Label(tr("Start compressions"), systemImage: "hand.raised.fill")
                                 .font(.title3.weight(.semibold))
                                 .frame(maxWidth: .infinity, minHeight: 58)
                                 .foregroundStyle(Palette.ink)
                                 .background(Palette.text, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                         }
                     }
-                    Text("Keep going until help or an AED arrives, or the person starts breathing normally. Follow the dispatcher's instructions. CPR Coach is a training tool, not a medical device.")
+                    Text(tr("Keep going until help or an AED arrives, or the person starts breathing normally. Follow the dispatcher's instructions. CPR Coach is a training tool, not a medical device."))
                         .font(.footnote).foregroundStyle(Palette.faint)
                 }
                 .padding(20)
             }
+            .id(coach.language)
         }
         .preferredColorScheme(.dark)
+        .onAppear { coach.beginTriage() }
+        .onDisappear { coach.endTriage() }
+        .onChange(of: coach.phase) { _, p in if p == .running { dismiss() } }
     }
 }
 
@@ -787,21 +934,21 @@ private struct EmergencySummary: View {
         ZStack {
             Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
             VStack(alignment: .leading, spacing: 16) {
-                Text("Compressions stopped").font(.system(size: 28, weight: .bold))
-                Text("\(summary.compressions) compressions over \(clock(summary.elapsed)). If help hasn't arrived and they aren't breathing normally, keep going.")
+                Text(tr("Compressions stopped")).font(.system(size: 28, weight: .bold))
+                Text(tr("%@ compressions over %@. If help hasn't arrived and they aren't breathing normally, keep going.", "\(summary.compressions)", clock(summary.elapsed)))
                     .foregroundStyle(Palette.muted)
                 Button { coach.startEmergency() } label: {
-                    Label("Resume compressions", systemImage: "hand.raised.fill").font(.headline)
+                    Label(tr("Resume compressions"), systemImage: "hand.raised.fill").font(.headline)
                         .frame(maxWidth: .infinity, minHeight: 54).foregroundStyle(.white)
                         .background(Palette.urgent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 HStack(spacing: 12) {
                     Button { coach.callEmergency() } label: {
-                        Label("Call \(CoachModel.emergencyNumber)", systemImage: "phone.fill").frame(maxWidth: .infinity, minHeight: 48)
+                        Label(tr("Call %@", CoachModel.emergencyNumber), systemImage: "phone.fill").frame(maxWidth: .infinity, minHeight: 48)
                             .background(Palette.surface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                     Button { coach.backToSetup() } label: {
-                        Text("Done").frame(maxWidth: .infinity, minHeight: 48)
+                        Text(tr("Done")).frame(maxWidth: .infinity, minHeight: 48)
                             .background(Palette.surface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                 }
