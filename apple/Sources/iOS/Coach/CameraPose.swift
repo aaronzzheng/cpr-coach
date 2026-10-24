@@ -28,7 +28,7 @@ nonisolated final class CameraPose: NSObject, AVCaptureVideoDataOutputSampleBuff
     init(onPose: @escaping @Sendable (PoseSample) -> Void) {
         self.onPose = onPose
         previewLayer = AVCaptureVideoPreviewLayer(session: session)
-        previewLayer.videoGravity = .resizeAspect
+        previewLayer.videoGravity = .resizeAspectFill
         super.init()
     }
 

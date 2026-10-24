@@ -238,10 +238,14 @@ nonisolated struct CoachRule: Sendable {
     let active: @Sendable (LiveState, _ runningS: Double, _ allGreenS: Double) -> Bool
 }
 
+/// Depth that's trustworthy enough to coach on: measured by the watch. The phone's camera-only
+/// estimate (from arm length, uncalibrated) is shown but never drives "Push harder"/"Less force".
+nonisolated func coachableDepth(_ l: LiveState) -> Double? { l.depthEstimate ? nil : l.depthCm }
+
 nonisolated func isAllGreen(_ l: LiveState) -> Bool {
     guard let age = l.lastCompressionAge, age < CoachConfig.noCompression,
           let r = l.rateCpm, r >= Targets.rateMin, r <= Targets.rateMax else { return false }
-    if let d = l.depthCm, d < Targets.depthMin || d > Targets.depthMax { return false }
+    if let d = coachableDepth(l), d < Targets.depthMin || d > Targets.depthMax { return false }
     return !l.elbowViolation && !l.alignViolation && !l.swapRecommended
 }
 
@@ -253,7 +257,7 @@ nonisolated let coachRules: [CoachRule] = [
     CoachRule(id: "swap", priority: 2, line: "Switch rescuers now.", banner: "Switch rescuers", tone: .swap,
               duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in l.swapRecommended },
     CoachRule(id: "too_shallow", priority: 3, line: "Push harder.", banner: "Push harder", tone: .urgent,
-              duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in (l.depthCm ?? 99) < Targets.depthMin },
+              duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in (coachableDepth(l) ?? 99) < Targets.depthMin },
     CoachRule(id: "too_slow", priority: 4, line: "Faster.", banner: "Faster", tone: .warning,
               duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in (l.rateCpm ?? 999) < Targets.rateMin },
     CoachRule(id: "too_fast", priority: 5, line: "Slow down.", banner: "Slow down", tone: .warning,
@@ -263,7 +267,7 @@ nonisolated let coachRules: [CoachRule] = [
     CoachRule(id: "not_over_hands", priority: 7, line: "Shoulders over your hands.", banner: "Shoulders over hands", tone: .warning,
               duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in l.alignViolation },
     CoachRule(id: "too_deep", priority: 9, line: "A little less force.", banner: "Less force", tone: .warning,
-              duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in (l.depthCm ?? 0) > CoachConfig.tooDeepCm },
+              duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in (coachableDepth(l) ?? 0) > CoachConfig.tooDeepCm },
     CoachRule(id: "praise", priority: 10, line: "Great compressions, keep going.", banner: "Great compressions", tone: .good,
               duringWarmup: true, cooldown: CoachConfig.praiseCooldown) { _, _, green in green >= CoachConfig.praiseAfter },
 ]
