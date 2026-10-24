@@ -1,0 +1,40 @@
+:root {
+  --bg: #0b0f14;
+  --panel: #141a22;
+  --text: #e8edf3;
+  --muted: #7d8a99;
+  --green: #22c55e;
+  --amber: #f59e0b;
+  --red: #ef4444;
+  --purple: #a855f7;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+
+.app { display: flex; flex-direction: column; height: 100%; }
+
+.topbar {
+  display: flex; align-items: center; gap: 32px;
+  padding: 16px 32px; background: var(--panel);
+}
+.topbar h1 { margin: 0; font-size: 28px; letter-spacing: 0.08em; }
+.timer { margin-left: auto; font-size: 28px; font-variant-numeric: tabular-nums; }
+
+.pills { display: flex; gap: 12px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px; border-radius: 999px; font-size: 18px;
+  background: #1e2630; color: var(--muted);
+}
+.pill .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.pill.on { color: var(--text); }
+.pill.on .dot { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+.placeholder {
+  flex: 1; display: grid; place-items: center;
+  font-size: 32px; color: var(--muted);
+}
+
+.footer { padding: 8px 32px; font-size: 14px; color: var(--muted); text-align: center; }

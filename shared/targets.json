@@ -1,0 +1,13 @@
+{
+  "rate_min_cpm": 100,
+  "rate_max_cpm": 120,
+  "rate_target_cpm": 110,
+  "depth_min_cm": 5.0,
+  "depth_max_cm": 6.0,
+  "pause_threshold_s": 2.0,
+  "max_hands_off_s": 10.0,
+  "ccf_target": 0.80,
+  "rescuer_swap_s": 120,
+  "elbow_locked_min_deg": 160,
+  "shoulder_over_hands_max_deg": 15
+}
