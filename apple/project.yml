@@ -43,8 +43,10 @@ targetTemplates:
         TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        # Phone coach works propped up in either orientation.
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: Connects to the CPR Coach laptop on your local network.
+        INFOPLIST_KEY_NSCameraUsageDescription: Watches your arm position from the side to coach elbows and shoulders. Video never leaves the phone.
 
 targets:
   CPRCoach:

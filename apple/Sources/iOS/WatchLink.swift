@@ -1,5 +1,5 @@
-// WatchConnectivity on the phone: forwards IMU batches (binary) and heart rate (JSON text)
-// to the laptop in arrival order, and relays laptop commands to the watch.
+// WatchConnectivity on the phone: delivers IMU batches and heart rate in arrival order to the
+// on-phone coach (and the laptop link, when connected), and relays commands to the watch.
 import Foundation
 import WatchConnectivity
 
@@ -43,8 +43,8 @@ nonisolated enum Outbound: Sendable {
 /// Everything background callbacks report to the UI model.
 nonisolated enum RelayEvent: Sendable {
     case watchState(paired: Bool, installed: Bool, reachable: Bool)
-    case imuIn
-    case heartRate(Int)
+    case imu(Data)
+    case heartRate(bpm: Int, watchTs: Double)
     case socket(LaptopSocket.State)
     case socketError(String)
     case sent
@@ -59,11 +59,9 @@ nonisolated func jsonString(_ object: [String: Any]) -> String {
 
 nonisolated final class WatchLink: NSObject, WCSessionDelegate, @unchecked Sendable {
     private let events: AsyncStream<RelayEvent>.Continuation
-    private let outbound: AsyncStream<Outbound>.Continuation
 
-    init(events: AsyncStream<RelayEvent>.Continuation, outbound: AsyncStream<Outbound>.Continuation) {
+    init(events: AsyncStream<RelayEvent>.Continuation) {
         self.events = events
-        self.outbound = outbound
         super.init()
     }
 
@@ -88,11 +86,7 @@ nonisolated final class WatchLink: NSObject, WCSessionDelegate, @unchecked Senda
 
     private func handle(_ message: [String: Any]) {
         guard message["t"] as? String == "hr", let bpm = message["bpm"] as? Int else { return }
-        let ts = message["ts"] as? Double ?? 0
-        outbound.yield(.text(jsonString([
-            "t": "hr", "bpm": bpm, "ts": ts, "phone_rx": Date().timeIntervalSince1970,
-        ])))
-        events.yield(.heartRate(bpm))
+        events.yield(.heartRate(bpm: bpm, watchTs: message["ts"] as? Double ?? 0))
     }
 
     // MARK: WCSessionDelegate
@@ -117,8 +111,7 @@ nonisolated final class WatchLink: NSObject, WCSessionDelegate, @unchecked Senda
     }
 
     func session(_ session: WCSession, didReceiveMessageData messageData: Data) {
-        outbound.yield(.imu(messageData))
-        events.yield(.imuIn)
+        events.yield(.imu(messageData))
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {

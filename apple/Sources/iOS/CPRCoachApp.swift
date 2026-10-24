@@ -1,4 +1,5 @@
-// iPhone relay entry point and its UI model: watch → laptop forwarding, laptop → watch commands.
+// iPhone app entry point. Coach tab: standalone coaching on the phone (camera + watch).
+// Laptop link tab: relays the watch to the laptop dashboard and laptop commands back.
 import Observation
 import SwiftUI
 import UIKit
@@ -9,8 +10,9 @@ struct CPRCoachApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
                 .environment(model)
+                .environment(model.coach)
         }
     }
 }
@@ -27,6 +29,7 @@ final class RelayModel {
     var outPerSecond = 0
     var droppedTotal = 0
     var lastHeartRate: Int?
+    let coach: CoachModel
     var addressError: String?
     var lastSocketError: String?
 
@@ -43,7 +46,9 @@ final class RelayModel {
         let socket = LaptopSocket(events: events)
         self.socket = socket
         self.outbound = outbound
-        watch = WatchLink(events: events, outbound: outbound)
+        let watch = WatchLink(events: events)
+        self.watch = watch
+        coach = CoachModel(sendToWatch: { cmd in watch.send(cmd) })
 
         Task { [weak self] in
             for await event in eventStream { self?.apply(event) }
@@ -106,8 +111,18 @@ final class RelayModel {
             watchPaired = paired
             watchInstalled = installed
             watchReachable = reachable
-        case .imuIn: inCount += 1
-        case .heartRate(let bpm): lastHeartRate = bpm
+        case .imu(let packet):
+            inCount += 1
+            coach.ingest(packet)
+            if wantConnected { outbound.yield(.imu(packet)) }
+        case .heartRate(let bpm, let watchTs):
+            lastHeartRate = bpm
+            coach.heartRate(bpm)
+            if wantConnected {
+                outbound.yield(.text(jsonString([
+                    "t": "hr", "bpm": bpm, "ts": watchTs, "phone_rx": Date().timeIntervalSince1970,
+                ])))
+            }
         case .socket(let s):
             socketState = s
             if s == .connected { lastSocketError = nil }
@@ -131,4 +146,19 @@ nonisolated func laptopURL(from address: String) -> URL? {
     if c.port == nil { c.port = 8000 }
     if c.path.isEmpty || c.path == "/" { c.path = "/ingest" }
     return c.url
+}
+
+struct RootView: View {
+    @Environment(CoachModel.self) private var coach
+
+    var body: some View {
+        TabView {
+            CoachView()
+                .toolbar(coach.phase == .setup || coach.phase == .summary ? .visible : .hidden, for: .tabBar)
+                .tabItem { Label("Coach", systemImage: "waveform.path.ecg") }
+            ContentView()
+                .tabItem { Label("Laptop link", systemImage: "laptopcomputer") }
+        }
+        .tint(Palette.good)
+    }
 }
