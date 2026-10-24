@@ -57,3 +57,22 @@ def test_unused_packet_type() -> None:
     p, _, _ = run_pipeline(SynthWatch(), 0.2)
     out = p.process(ImuPacket(99, np.empty(0), np.empty((0, 3)), np.empty((0, 3)), np.empty((0, 3))), 0.0)
     assert out.bottoms == []
+
+
+def test_clock_offset_relearned_when_sender_changes() -> None:
+    """Simulator data hours earlier must not leave a stale watch→laptop offset behind."""
+    from app.pipeline import WatchPipeline
+
+    p = WatchPipeline()
+    sim = SynthWatch(seed=1, boot_ts=1000.0)
+    for seq in range(25):  # 5 s of simulator data, received 3 hours "ago"
+        ts, ua, g, rr, _ = sim.next(20)
+        p.process(ImuPacket(seq, ts, ua, g, rr), recv_time=10_000.0 + seq * 0.2)
+    watch = SynthWatch(seed=2, boot_ts=50_000.0)  # real watch: much larger uptime clock
+    for seq in range(50):
+        ts, ua, g, rr, _ = watch.next(20)
+        recv = 20_800.0 + seq * 0.2
+        out = p.process(ImuPacket(seq, ts, ua, g, rr), recv_time=recv)
+        for c in out.bottoms:
+            assert abs(recv - c.t) < 1.0, f"compression mapped {recv - c.t:.0f} s in the past"
+    assert p.detector.count > 5

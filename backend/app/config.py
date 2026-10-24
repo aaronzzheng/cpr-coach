@@ -51,6 +51,10 @@ BROADCAST_HZ = 20.0
 WAVE_S = 6.0
 WAVE_FS = 50.0
 SOURCE_STALE_S = 1.0
+# Watch→laptop clock offset: minimum over this many recent packets (least transport latency).
+CLOCK_OFFSET_WINDOW = 50
+# A forward jump this large in watch timestamps means a different sender/clock: re-learn the offset.
+CLOCK_JUMP_S = 5.0
 # The summary uses watch metrics only if the watch saw at least this many compressions.
 MIN_WATCH_COMPRESSIONS = 10
 LEADERBOARD_SIZE = 10

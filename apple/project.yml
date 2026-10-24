@@ -82,6 +82,13 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).cprcoach.watchkitapp
         TARGETED_DEVICE_FAMILY: "4"
         INFOPLIST_KEY_NSMotionUsageDescription: Measures chest compression rate and depth from wrist motion.
+        # Keep the bundle installable on watchOS 10 (Series 5): no debug/preview helper dylibs,
+        # and only the arm64_32 slice (Xcode's arm64 slice requires watchOS 26). Every current
+        # watch runs arm64_32.
+        ENABLE_DEBUG_DYLIB: NO
+        ENABLE_PREVIEWS: NO
+        ARCHS: arm64_32
+        ONLY_ACTIVE_ARCH: NO
 
 schemes:
   CPRCoach:

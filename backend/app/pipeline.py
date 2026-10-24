@@ -8,7 +8,15 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .config import DEPTH_WINDOW, FATIGUE_RESET_PAUSE_S, IMU_FS, WAVE_FS, WAVE_S
+from .config import (
+    CLOCK_JUMP_S,
+    CLOCK_OFFSET_WINDOW,
+    DEPTH_WINDOW,
+    FATIGUE_RESET_PAUSE_S,
+    IMU_FS,
+    WAVE_FS,
+    WAVE_S,
+)
 from .dsp.compressions import Compression, CompressionDetector
 from .dsp.fatigue import FatigueModel, FatigueState
 from .dsp.filters import StreamingBandpass
@@ -33,6 +41,7 @@ class WatchPipeline:
         self.detector = CompressionDetector(depth_scale=self.depth_scale)
         self.fatigue = FatigueModel()
         self.offset: float | None = None
+        self.offsets: deque[float] = deque(maxlen=CLOCK_OFFSET_WINDOW)
         self.last_ts: float | None = None
         self.depths: deque[float] = deque(maxlen=DEPTH_WINDOW)
         self.last_depth: float | None = None
@@ -49,14 +58,20 @@ class WatchPipeline:
             # Watch clock went backwards: a new device or a restarted sender.
             self.reset_dsp()
             self.seq.reset()
+        elif self.last_ts is not None and pkt.ts[0] - self.last_ts > CLOCK_JUMP_S:
+            # Clock jumped forward (e.g. simulator → real watch): the old offset is meaningless.
+            self.offsets.clear()
+            self.filter.reset()
+            self.detector.mark_discontinuity(float(pkt.ts[0]))
         gap = self.seq.check(pkt.seq)
         if gap:
             self.filter.reset()
             self.detector.mark_discontinuity(float(pkt.ts[0]))
 
-        # Laptop = watch + offset. The smallest observed offset has the least transport latency.
-        off = recv_time - float(pkt.ts[-1])
-        self.offset = off if self.offset is None else min(self.offset, off)
+        # Laptop = watch + offset. The smallest recent offset has the least transport latency;
+        # a rolling window (not an all-time minimum) lets it follow a new sender or clock drift.
+        self.offsets.append(recv_time - float(pkt.ts[-1]))
+        self.offset = min(self.offsets)
         self.last_ts = float(pkt.ts[-1])
 
         a_up = vertical_accel(pkt.ua, pkt.g)

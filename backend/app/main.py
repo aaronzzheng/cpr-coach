@@ -288,6 +288,9 @@ async def ingest_ws(ws: WebSocket) -> None:
                 t = j.get("t")
                 if t == "hello":
                     ingest.device = j.get("device", "unknown")
+                    # New sender, new clock: start DSP and the clock mapping fresh.
+                    pipeline.reset_dsp()
+                    pipeline.seq.reset()
                     log.info("ingest hello from %s", ingest.device)
                 elif t == "hr":
                     pipeline.hr = float(j["bpm"])
