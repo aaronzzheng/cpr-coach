@@ -9,3 +9,9 @@ web/public/models/*.task
 data/
 .DS_Store
 web/public/wasm/
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+.build/

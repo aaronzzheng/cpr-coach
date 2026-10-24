@@ -35,6 +35,8 @@ Keyboard: `Space` start/stop · `S` swap rescuer · `B` metronome · `M` mute vo
 - Tests: `make test`
 - Production build: `make build`, then the backend serves `web/dist` at http://localhost:8000
 
+Real watch: follow [apple/SETUP.md](apple/SETUP.md) (Xcode project, signing, devices, then connect the iPhone relay to `ws://<laptop IP>:8000/ingest`).
+
 ## Calibrate
 
 *(M4)*

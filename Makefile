@@ -2,7 +2,7 @@
 PY := backend/.venv/bin/python
 SCENARIO ?= good
 
-.PHONY: setup dev backend web sim test lint build
+.PHONY: setup dev backend web sim test lint build swift-check
 
 setup:
 	cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
@@ -33,3 +33,11 @@ lint:
 
 build:
 	cd web && npm run build
+
+# Typecheck the Swift sources against the watchOS 10 / iOS 17 SDKs (no Xcode project needed).
+WATCH_SRC := $(firstword $(wildcard apple/Sources/Watch) $(wildcard apple/CPRCoach/*Watch\ App))
+IOS_SRC := $(firstword $(wildcard apple/Sources/iOS) $(wildcard apple/CPRCoach/CPRCoach))
+swift-check:
+	xcrun --sdk watchos swiftc -typecheck -parse-as-library -swift-version 6 -target arm64_32-apple-watchos10.0 "$(WATCH_SRC)"/*.swift
+	xcrun --sdk iphoneos swiftc -typecheck -parse-as-library -swift-version 6 -target arm64-apple-ios17.0 "$(IOS_SRC)"/*.swift
+	@echo "Swift sources typecheck OK"
