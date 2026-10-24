@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Privacy (PRD §10): the page may only talk to the laptop it was served from. This also
+         blocks MediaPipe's built-in usage logging to Google, which has no off switch. -->
+    <meta http-equiv="Content-Security-Policy" content="connect-src 'self' blob: data:" />
     <title>CPR Coach</title>
   </head>
   <body>

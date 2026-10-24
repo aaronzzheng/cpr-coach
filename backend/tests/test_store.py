@@ -71,3 +71,8 @@ def test_summary_falls_back_to_camera() -> None:
     assert s["source"] == "camera" and s["depth_estimated"]
     # rate 30*.5 + ccf 20*1 = 35 over weight 50 → 70
     assert s["score"] == 70 and s["fatigue_at_s"] is None
+
+
+def test_summary_respects_camera_only_override() -> None:
+    cam = CameraMetrics(compressions=40, rate_pct=0.5, ccf=1.0, prefer_camera=True)
+    assert build_summary(WATCH, cam, "d")["source"] == "camera"

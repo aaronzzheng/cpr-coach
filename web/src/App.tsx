@@ -77,6 +77,7 @@ export default function App() {
   const [muted, setMuted] = useState(false);
   const [metronomeOn, setMetronomeOn] = useState(true);
   const [debug, setDebug] = useState(false);
+  const [useWatch, setUseWatch] = useState(true);
   const [name, setName] = useState("");
   const [board, setBoard] = useState<LeaderboardEntry[]>([]);
   const [calibration, setCalibration] = useState<Calibration | null>(null);
@@ -87,6 +88,9 @@ export default function App() {
   const [homeError, setHomeError] = useState<string | null>(null);
 
   const phaseRef = useRef<Phase>("home");
+  const useWatchRef = useRef(true);
+  /** True if the watch was switched off at any point this session (summary then uses the camera). */
+  const watchOverridden = useRef(false);
   const calRef = useRef<CalState>(CAL_INITIAL);
   const runStart = useRef(0);
   const lastCoach = useRef(0);
@@ -96,6 +100,7 @@ export default function App() {
   const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   phaseRef.current = phase;
   calRef.current = cal;
+  useWatchRef.current = useWatch;
 
   const refreshBoard = useCallback(() => {
     api.leaderboard().then(setBoard, () => setBoard([]));
@@ -150,9 +155,12 @@ export default function App() {
       const now = nowS();
       const b = backend.current;
       const cam = p.snapshot();
-      const live = fuse(b.watchSnapshot(), cam);
+      // W key: camera-only backup mode ignores the watch entirely.
+      const live = fuse(useWatchRef.current ? b.watchSnapshot() : null, cam);
       const camEvents = p.drainCompressions();
-      const watchEvents = newWatchEvents(b);
+      // Always drain, so turning the watch back on doesn't replay events from while it was off.
+      const drained = newWatchEvents(b);
+      const watchEvents = useWatchRef.current ? drained : [];
       const ph = phaseRef.current;
 
       if (ph === "running" && tracker.current) {
@@ -217,6 +225,7 @@ export default function App() {
       engine.current.reset();
       pipeline.current?.resetSession();
       sessionId.current = null;
+      watchOverridden.current = !useWatchRef.current;
       api.startSession(name).then(
         (r) => (sessionId.current = r.session_id),
         (e: Error) => setHomeError(`Backend: ${e.message}`),
@@ -236,7 +245,7 @@ export default function App() {
       return;
     }
     if (phaseRef.current !== "running") return;
-    const cam = tracker.current?.finish(nowS());
+    const cam = tracker.current?.finish(nowS(), watchOverridden.current);
     setSummary(null);
     setSummaryError(null);
     setAdded(false);
@@ -320,6 +329,13 @@ export default function App() {
     });
   }, []);
 
+  const toggleWatch = useCallback(() => {
+    setUseWatch((on) => {
+      if (on && phaseRef.current === "running") watchOverridden.current = true;
+      return !on;
+    });
+  }, []);
+
   const toggleCamera = useCallback(() => {
     const p = pipeline.current;
     if (!p) return;
@@ -349,6 +365,9 @@ export default function App() {
         case "c":
           toggleCamera();
           break;
+        case "w":
+          toggleWatch();
+          break;
         case "d":
           setDebug((d) => !d);
           break;
@@ -360,7 +379,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [start, stop, backHome, toggleMute, toggleMetronome, toggleCamera]);
+  }, [start, stop, backHome, toggleMute, toggleMetronome, toggleCamera, toggleWatch]);
 
   const camPill: PillState =
     view?.camStatus === "on" ? (view.cam.posture?.visible ? "on" : "warn") : view?.camStatus === "starting" ? "warn" : "off";
@@ -376,7 +395,7 @@ export default function App() {
         <StatusPills
           pills={[
             { label: "Backend", state: view?.backendUp ? "on" : "off" },
-            { label: watchLabel, state: bs?.sources.watch_streaming ? "on" : "off" },
+            { label: useWatch ? watchLabel : "Watch ignored [W]", state: !useWatch ? "off" : bs?.sources.watch_streaming ? "on" : "off" },
             { label: "Phone", state: bs?.sources.phone_connected ? "on" : "off" },
             { label: "Camera", state: camPill },
           ]}
@@ -394,7 +413,11 @@ export default function App() {
       <section className="top">
         <div className="camera-wrap">
           <CameraView ref={videoRef} canvasRef={canvasRef} status={view?.camStatus ?? "off"} error={view?.camError ?? null} />
-          {phase === "countdown" && <div className="countdown">{countdown > 0 ? countdown : "GO"}</div>}
+          {phase === "countdown" && (
+            <div className="countdown">
+              <span key={countdown}>{countdown > 0 ? countdown : "GO"}</span>
+            </div>
+          )}
           {phase === "running" && name && <div className="rescuer-tag">{name}</div>}
         </div>
         {showGauges && (
@@ -461,7 +484,7 @@ export default function App() {
       />
 
       <footer className="footer">
-        Training tool – not a medical device · Space start/stop · B metronome · S swap · M mute · C camera · D debug · F fullscreen
+        Training tool – not a medical device · Space start/stop · B metronome · S swap · M mute · C camera · W watch · D debug · F fullscreen
       </footer>
 
       {phase === "summary" && (

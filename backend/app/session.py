@@ -26,7 +26,10 @@ def compute_score(
     align_pct: float | None = None,
 ) -> float:
     """PRD §8.5. Percentages are fractions 0–1; terms that are None are dropped and the
-    remaining weights renormalized to 100."""
+    remaining weights renormalized to 100. Without any measured compressions (no rate data)
+    the session scores 0, otherwise CCF or posture alone could reweight up to 100."""
+    if rate_pct is None:
+        return 0.0
     terms = [
         (30.0, rate_pct),
         (30.0, depth_pct),
@@ -64,6 +67,8 @@ class CameraMetrics(BaseModel):
     """What the dashboard measured in-browser, posted after stop (PRD §6.3 summary route)."""
 
     compressions: int = 0
+    # The operator switched the dashboard to camera-only (watch misbehaving): ignore watch metrics.
+    prefer_camera: bool = False
     rate_pct: float | None = None
     depth_pct: float | None = None
     ccf: float | None = None
@@ -196,7 +201,7 @@ class Session:
 def build_summary(watch: dict, cam: CameraMetrics, date: str) -> dict:
     """Merge watch and camera metrics into the final summary. The watch is preferred for
     rate/depth/CCF when it saw enough compressions; posture always comes from the camera."""
-    use_watch = watch["compressions"] >= MIN_WATCH_COMPRESSIONS
+    use_watch = watch["compressions"] >= MIN_WATCH_COMPRESSIONS and not cam.prefer_camera
     src = watch if use_watch else cam.model_dump()
     score = compute_score(src["rate_pct"], src["depth_pct"], src["ccf"], cam.elbow_pct, cam.align_pct)
     return {

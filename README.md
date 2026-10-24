@@ -63,8 +63,52 @@ Calibration is stored in `data/calibration.json` and applies immediately.
 
 ## Demo
 
-*(M5)*
+### Before judging
+
+1. `make demo` serves everything from one process on port 8000: no auto-reload, built dashboard, works with no internet. Open http://localhost:8000 on the projector and press **F** for fullscreen. (Don't demo from `make dev`: it restarts the backend whenever a file changes, which ends the session in progress.)
+2. Camera on a stand **to the side**, rescuer's whole upper body in frame, good light.
+3. Watch: iPhone relay connected (*Socket: connected*), watch app **Start** pressed. The **Watch** and **Phone** pills are green.
+4. Run **Calibrate** with the ruler (about 60 s).
+5. Do one 20-second practice run and check the voice and metronome are audible.
+
+### Operator keys
+
+| Key | Action |
+|---|---|
+| `Space` | start / stop session (on the scorecard: back to home) |
+| `S` | swap rescuers (resets the fatigue cycle) |
+| `B` | metronome on/off (laptop and watch) |
+| `M` | mute the voice coach |
+| `W` | **ignore the watch**: camera-only backup mode (the scorecard then uses camera metrics too) |
+| `C` | camera on/off |
+| `D` | debug overlay (pose fps, packet rate, gaps, raw metrics) |
+| `F` | fullscreen |
+
+### 3-minute script
+
+1. **Hook (20 s):** most bystanders push too shallow and too slow, and quality falls apart within about 2 minutes. *(Check the exact statistics before pitching.)*
+2. **Live run (60 s):** a teammate goes deliberately shallow → "Push harder" → corrects. Bends their elbows → "Lock your elbows" → corrects.
+3. **Fatigue (20 s):** replay the fatigue recording: `make replay SESSION=recordings/fatigue.jsonl SPEED=4`. "Switch rescuers" appears, and the scorecard marks when fatigue was detected.
+4. **Judge (60 s):** a judge types their name, does 30 s, gets a score, clicks **Add to leaderboard**.
+5. **Tech (20 s):** 100 Hz IMU projected onto gravity, per-cycle double integration with zero-velocity resets, MediaPipe pose for form, all on-device.
+
+### Backup plan
+
+- **Watch fails live:** press `W`. Rate, estimated depth and posture keep coming from the camera.
+- **Everything fails:** `make replay SESSION=recordings/good.jsonl` (or `fatigue.jsonl`) drives the dashboard exactly as the watch would.
+- Record real golden sessions with the watch before the event: `make record NAME=good`, then do compressions and press Enter. The checked-in recordings come from the simulator.
 
 ## Troubleshooting
 
-*(M5)*
+| Symptom | Fix |
+|---|---|
+| Dashboard says *Camera error: Permission denied* | Allow the camera for localhost in the browser's site settings, then reload. |
+| Camera pill is amber | The arm isn't visible enough. Use a side view, show shoulder to wrist, add light, wear contrasting sleeves. |
+| Compressions not counted from the camera | Press `D`: *cam amp px* should be well above the jitter. Move the camera closer or reframe. |
+| Watch pill off but phone connected | Open the watch app and press Start; keep the iPhone app in the foreground. |
+| Phone can't reach the laptop | Hackathon Wi-Fi blocks device-to-device traffic: use the iPhone Personal Hotspot (see `apple/SETUP.md`). |
+| Watch rate jumpy or misses compressions | Lower the peak threshold: `CPR_PEAK_PROMINENCE=2.0 make demo` (default 3.0 m/s²). |
+| Depth always too high/low | Re-run **Calibrate** with the ruler. |
+| No voice | Click the page once (browsers block audio until you interact), check `M` isn't muted. |
+| Scorecard says *Couldn't score this session* | The backend restarted during the session (for example `make dev` reloading). Use `make demo`. |
+| Leaderboard or calibration looks wrong | They're plain JSON in `data/`. Delete `data/leaderboard.json` or `data/calibration.json` to reset. |

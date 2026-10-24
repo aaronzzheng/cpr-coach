@@ -44,6 +44,7 @@ html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(-
 .camera { position: relative; height: 100%; background: #000; border-radius: 12px; overflow: hidden; }
 .camera video, .camera canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .camera-msg { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; color: var(--muted); text-align: center; padding: 24px; }
+.countdown span { display: inline-block; animation: pop 0.4s ease-out; }
 .countdown { position: absolute; inset: 0; display: grid; place-items: center; font-size: 200px; font-weight: 800; background: rgba(0,0,0,0.45); border-radius: 12px; }
 
 .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-height: 0; }
@@ -54,7 +55,8 @@ html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(-
 .gauge { width: 100%; flex: 1; min-height: 0; }
 .gauge-track { fill: none; stroke: var(--panel-2); stroke-width: 22; stroke-linecap: round; }
 .gauge-zone { fill: none; stroke: var(--green); stroke-width: 22; opacity: 0.55; }
-.gauge-needle { stroke: var(--text); stroke-width: 6; stroke-linecap: round; transition: all 0.2s ease-out; }
+.gauge-needle { stroke: var(--text); stroke-width: 6; stroke-linecap: round; transition: transform 0.35s cubic-bezier(0.3, 1.4, 0.6, 1), opacity 0.3s; }
+.gauge-needle.idle { opacity: 0.25; }
 .gauge-hub { fill: var(--text); }
 .gauge-value { font-size: 72px; font-weight: 800; text-anchor: middle; fill: var(--text); font-variant-numeric: tabular-nums; }
 .gauge-unit { font-size: 22px; text-anchor: middle; fill: var(--muted); }
@@ -86,7 +88,8 @@ html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(-
 .check.hr { margin-left: auto; }
 
 /* Coach banner */
-.banner { margin: 0 28px; padding: 18px; border-radius: 12px; text-align: center; font-size: 48px; font-weight: 800; letter-spacing: 0.04em; transition: background 0.2s; }
+@keyframes pop { from { transform: scale(0.94); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
+.banner { animation: pop 0.25s ease-out; margin: 0 28px; padding: 18px; border-radius: 12px; text-align: center; font-size: 48px; font-weight: 800; letter-spacing: 0.04em; transition: background 0.2s; }
 .banner.idle { background: var(--panel); color: var(--muted); font-weight: 600; font-size: 32px; }
 .banner.red { background: var(--red); }
 .banner.amber { background: var(--amber); color: #1a1205; }

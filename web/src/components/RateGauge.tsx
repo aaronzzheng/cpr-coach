@@ -9,9 +9,14 @@ const R = 120;
 const CX = 150;
 const CY = 150;
 
-function polar(v: number): [number, number] {
+/** Degrees clockwise from 12 o'clock for a rate value. */
+function angle(v: number): number {
   const clamped = Math.min(MAX, Math.max(MIN, v));
-  const a = ((-SWEEP / 2 + ((clamped - MIN) / (MAX - MIN)) * SWEEP) * Math.PI) / 180;
+  return -SWEEP / 2 + ((clamped - MIN) / (MAX - MIN)) * SWEEP;
+}
+
+function polar(v: number): [number, number] {
+  const a = (angle(v) * Math.PI) / 180;
   return [CX + R * Math.sin(a), CY - R * Math.cos(a)];
 }
 
@@ -24,14 +29,21 @@ function arc(from: number, to: number): string {
 
 export function RateGauge({ cpm, source }: { cpm: number | null; source: Source }) {
   const ok = cpm !== null && cpm >= TARGETS.rate_min_cpm && cpm <= TARGETS.rate_max_cpm;
-  const [nx, ny] = polar(cpm ?? MIN);
   return (
     <div className="metric">
       <div className="metric-label">RATE</div>
       <svg viewBox="0 0 300 260" className="gauge">
         <path d={arc(MIN, MAX)} className="gauge-track" />
         <path d={arc(TARGETS.rate_min_cpm, TARGETS.rate_max_cpm)} className="gauge-zone" />
-        {cpm !== null && <line x1={CX} y1={CY} x2={nx} y2={ny} className="gauge-needle" />}
+        {/* Rotated rather than re-pointed so the CSS transition can sweep it smoothly. */}
+        <line
+          x1={CX}
+          y1={CY}
+          x2={CX}
+          y2={CY - R + 14}
+          className={`gauge-needle ${cpm === null ? "idle" : ""}`}
+          style={{ transform: `rotate(${angle(cpm ?? MIN)}deg)`, transformOrigin: `${CX}px ${CY}px` }}
+        />
         <circle cx={CX} cy={CY} r={8} className="gauge-hub" />
         <text x={CX} y={CY + 70} className={`gauge-value ${cpm === null ? "" : ok ? "good" : "bad"}`}>
           {cpm === null ? "—" : Math.round(cpm)}

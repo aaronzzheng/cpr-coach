@@ -6,6 +6,7 @@ import type { PostureFrame } from "../pose/postureMetrics";
 
 export interface CameraMetrics {
   compressions: number;
+  prefer_camera: boolean;
   rate_pct: number | null;
   depth_pct: number | null;
   ccf: number | null;
@@ -99,11 +100,12 @@ export class SessionTracker {
     return this.clockStart === null ? 0 : Math.max(0, now - this.clockStart);
   }
 
-  finish(now: number): CameraMetrics {
+  finish(now: number, preferCamera = false): CameraMetrics {
     const elapsed = this.elapsed(now);
     const enoughPosture = this.postureTicks >= SESSION.minPostureTicks;
     return {
       compressions: this.cameraCount,
+      prefer_camera: preferCamera,
       rate_pct: frac(this.rateOk),
       depth_pct: frac(this.depthOk),
       ccf: elapsed > 0 ? Math.max(0, (elapsed - this.handsOff) / elapsed) : null,

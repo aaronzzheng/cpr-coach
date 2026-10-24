@@ -2,7 +2,7 @@
 PY := backend/.venv/bin/python
 SCENARIO ?= good
 
-.PHONY: setup dev backend web sim replay test lint build swift-check
+.PHONY: setup dev demo backend web sim record replay test lint build swift-check
 
 setup:
 	cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
@@ -15,6 +15,12 @@ dev:
 	(cd web && npm run dev) & \
 	wait
 
+# Demo / judging: one stable process (no auto-reload) serving the built dashboard at :$(PORT).
+PORT ?= 8000
+demo: build
+	@echo "CPR Coach → http://localhost:$(PORT)   (phone: ws://$$(ipconfig getifaddr en0 2>/dev/null || echo LAPTOP_IP):$(PORT)/ingest)"
+	cd backend && .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port $(PORT) --log-level warning
+
 backend:
 	cd backend && .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
@@ -23,6 +29,13 @@ web:
 
 sim:
 	cd backend && .venv/bin/python -m tools.sim_watch --scenario $(SCENARIO)
+
+# Record a golden session for backup replay. Real watch: make record NAME=good
+# Simulator: make record NAME=fatigue SIM=fatigue DURATION=150
+DURATION ?= 60
+record:
+	@test -n "$(NAME)" || (echo "usage: make record NAME=good [SIM=good DURATION=60]"; exit 1)
+	cd backend && .venv/bin/python -m tools.record ../recordings/$(NAME).jsonl $(if $(SIM),--sim $(SIM) --duration $(DURATION),)
 
 SPEED ?= 1
 replay:

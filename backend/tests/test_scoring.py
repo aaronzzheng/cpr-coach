@@ -21,6 +21,10 @@ def test_no_terms() -> None:
     assert compute_score(None, None, None) == 0
 
 
+def test_no_compressions_cannot_score_from_ccf_or_posture_alone() -> None:
+    assert compute_score(None, None, 1.0, 1.0, 1.0) == 0
+
+
 @pytest.mark.parametrize(("score", "letter"), [(95, "A"), (90, "A"), (85, "B"), (70, "C"), (61, "D"), (10, "F")])
 def test_grades(score: float, letter: str) -> None:
     assert grade_letter(score) == letter
