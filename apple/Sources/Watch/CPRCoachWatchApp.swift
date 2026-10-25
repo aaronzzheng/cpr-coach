@@ -1,4 +1,5 @@
 // Watch app entry point and the UI model that ties workout, motion, metronome and phone link.
+import AVFoundation
 import Observation
 import SwiftUI
 import WatchKit
@@ -35,6 +36,11 @@ final class WatchModel {
     var coachOnWatch = UserDefaults.standard.object(forKey: "coachOnWatch") as? Bool ?? true {
         didSet { UserDefaults.standard.set(coachOnWatch, forKey: "coachOnWatch") }
     }
+    /// Speak the cues from the watch's speaker when the watch is coaching on its own (session
+    /// started on the watch, or no phone). Phone-started sessions leave the talking to the phone.
+    var voiceOnWatch = UserDefaults.standard.object(forKey: "voiceOnWatch") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(voiceOnWatch, forKey: "voiceOnWatch") }
+    }
     var rate: Double?
     var depth: Double?
     var cue: WatchCue?
@@ -43,6 +49,10 @@ final class WatchModel {
     @ObservationIgnored private var cueSince: (cue: WatchCue, t: Double)?
     @ObservationIgnored private var lastHaptic = 0.0
     @ObservationIgnored private var startedAt = 0.0
+    @ObservationIgnored private var startedByPhone = false
+    @ObservationIgnored private var goodSince: Double?
+    @ObservationIgnored private var lastPraise = 0.0
+    @ObservationIgnored private let synth = AVSpeechSynthesizer()
 
     @ObservationIgnored private let phone: PhoneLink
     @ObservationIgnored private let motion: MotionStreamer
@@ -65,10 +75,11 @@ final class WatchModel {
         phone.activate()
     }
 
-    func start() async {
+    func start(fromPhone: Bool = false) async {
         guard !running else { return }
         error = nil
         running = true
+        startedByPhone = fromPhone
         do {
             try await workout.requestAuthorization()
             try await workout.start()
@@ -82,6 +93,13 @@ final class WatchModel {
         depth = nil
         cue = nil
         startedAt = ProcessInfo.processInfo.systemUptime
+        goodSince = nil
+        lastPraise = startedAt
+        if speaks {
+            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .voicePrompt)
+            try? AVAudioSession.sharedInstance().setActive(true)
+            say(tr("Start compressions."))
+        }
         if !motion.isAvailable { error = "Device motion unavailable" }
         motion.start()
         syncMetronome()
@@ -90,6 +108,7 @@ final class WatchModel {
     func stop() {
         guard running else { return }
         running = false
+        synth.stopSpeaking(at: .immediate)
         motion.stop()
         workout.stop()
         syncMetronome()
@@ -108,13 +127,34 @@ final class WatchModel {
         guard coachOnWatch else { cue = nil; return }
         let c = WatchCue.evaluate(rate: rate, depth: depth, lastCompressionAge: age, runningS: now - startedAt)
         cue = c
-        // Tap the wrist when a fault has lasted 2 s, at most every 6 s; up = more, down = less.
+        // Praise after 10 s of good compressions, at most every 20 s.
+        if c == .good {
+            goodSince = goodSince ?? now
+            if now - goodSince! >= 10, now - lastPraise >= 20, speaks {
+                lastPraise = now
+                say(tr("Great compressions, keep going."))
+            }
+        } else {
+            goodSince = nil
+        }
+        // Tap the wrist (and speak) when a fault has lasted 2 s, at most every 6 s; up = more, down = less.
         guard let c, c != .good else { cueSince = nil; return }
         if cueSince?.cue != c { cueSince = (c, now) }
         if now - cueSince!.t >= 2, now - lastHaptic >= 6 {
             lastHaptic = now
             WKInterfaceDevice.current().play(c.haptic)
+            if speaks { say(c.spoken) }
         }
+    }
+
+    /// The watch talks only when it's the one coaching: a session started on the watch, or no phone.
+    private var speaks: Bool { voiceOnWatch && coachOnWatch && (!startedByPhone || !phoneReachable) }
+
+    private func say(_ line: String) {
+        if synth.isSpeaking { return }
+        let u = AVSpeechUtterance(string: line)
+        u.voice = AVSpeechSynthesisVoice(language: AppLanguage.current.locale.identifier(.bcp47))
+        synth.speak(u)
     }
 
     private func syncMetronome() {
@@ -138,7 +178,7 @@ final class WatchModel {
 
     private func handle(_ cmd: WatchCommand) {
         switch cmd {
-        case .start: Task { await start() }
+        case .start: Task { await start(fromPhone: true) }
         case .stop: stop()
         case .metronome(let on, let newBpm):
             bpm = newBpm
@@ -169,6 +209,18 @@ enum WatchCue: Equatable {
         case .slower: tr("Slow down")
         case .lessForce: tr("Less force")
         case .good: tr("Good")
+        }
+    }
+
+    /// The phone's spoken line for this cue (already translated in the shared table).
+    var spoken: String {
+        switch self {
+        case .keepPushing: tr("Keep pushing! Don't stop.")
+        case .harder: tr("Push harder.")
+        case .faster: tr("Faster.")
+        case .slower: tr("Slow down.")
+        case .lessForce: tr("A little less force.")
+        case .good: tr("Great compressions, keep going.")
         }
     }
 

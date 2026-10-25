@@ -244,4 +244,5 @@ nonisolated let translations: [String: [AppLanguage: String]] = [
     "Emergency mode": [.es: "Modo emergencia", .fr: "Mode urgence", .zh: "紧急模式", .ko: "응급 모드", .ja: "緊急モード", .hi: "इमरजेंसी मोड"],
     "Walks you through checking the person, calling for help and CPR.": [.es: "Te guía para comprobar a la persona, pedir ayuda y hacer RCP.", .fr: "Te guide pour examiner la victime, appeler les secours et faire la RCP.", .zh: "一步步指导你检查患者、呼救并实施心肺复苏。", .ko: "환자 확인, 도움 요청, 심폐소생술까지 단계별로 안내해요.", .ja: "傷病者の確認、通報、CPRまで順に案内します。", .hi: "व्यक्ति की जाँच, मदद बुलाने और CPR में कदम-दर-कदम मार्गदर्शन करता है।"],
     "Continue": [.es: "Continuar", .fr: "Continuer", .zh: "继续", .ko: "계속", .ja: "続ける", .hi: "आगे बढ़ें"],
+    "Voice on watch": [.es: "Voz en el reloj", .fr: "Voix sur la montre", .zh: "手表语音", .ko: "워치 음성", .ja: "ウォッチの音声", .hi: "वॉच पर आवाज़"],
 ]

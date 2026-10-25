@@ -40,6 +40,7 @@ struct ContentView: View {
                     Text("Dropped batches: \(model.batchesDropped)").foregroundStyle(.orange)
                 }
                 Toggle(tr("Coach on watch"), isOn: $model.coachOnWatch)
+                Toggle(tr("Voice on watch"), isOn: $model.voiceOnWatch)
                 Toggle(tr("Metronome"), isOn: $model.metronomeOn)
                 Toggle(tr("Haptic every 2 beats"), isOn: $model.everyOtherBeat)
                 Text("Samples sent: \(model.samplesSent)").foregroundStyle(.secondary)
