@@ -107,7 +107,7 @@ struct CoachView: View {
                            scale: (0, 8), target: (Targets.depthMin, Targets.depthMax),
                            outWords: (tr("Too shallow"), tr("Too deep")),
                            source: coach.live.depthSource.map(depthSourceName),
-                           estimate: coach.live.depthEstimate)
+                           estimate: coach.live.depthEstimate, tolerance: Targets.depthToleranceCm)
             }
             .fixedSize(horizontal: false, vertical: true)
         }
@@ -379,12 +379,14 @@ private struct MetricTile: View {
     let outWords: (String, String)
     let source: String?
     let estimate: Bool
+    /// Slack around the target band before a value counts as out of range.
+    var tolerance = 0.0
 
     private enum State { case none, estimate, low, ok, high }
     private var state: State {
         guard let v = value else { return .none }
         if estimate { return .estimate }
-        return v < target.0 ? .low : v > target.1 ? .high : .ok
+        return v < target.0 - tolerance ? .low : v > target.1 + tolerance ? .high : .ok
     }
 
     var body: some View {

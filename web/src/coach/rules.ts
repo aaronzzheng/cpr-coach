@@ -1,6 +1,6 @@
 // Coach rule table (PRD §8.4): priority order, condition, spoken line and banner color.
 import { COACH, TARGETS } from "../config";
-import { depthMax, depthMin, tooDeepCm } from "../patient";
+import { depthOkMax, depthOkMin, tooDeepCm } from "../patient";
 import type { LiveState } from "../fusion/fuse";
 
 export type BannerColor = "red" | "amber" | "purple" | "green";
@@ -45,7 +45,7 @@ export function isAllGreen(l: LiveState): boolean {
   if (l.lastCompressionAgeS === null || l.lastCompressionAgeS >= COACH.noCompressionS) return false;
   if (l.rate.cpm === null || l.rate.cpm < TARGETS.rate_min_cpm || l.rate.cpm > TARGETS.rate_max_cpm) return false;
   const d = depthFor(l);
-  if (d !== null && (d < depthMin() || d > depthMax())) return false;
+  if (d !== null && (d < depthOkMin() || d > depthOkMax())) return false;
   if (l.posture.elbowViolation || l.posture.alignViolation || l.posture.incompleteRecoil) return false;
   return !l.swapRecommended;
 }
@@ -105,7 +105,7 @@ export const RULES: Rule[] = [
     cooldownS: COACH.ruleCooldownS,
     active: (c) => {
       const d = depthFor(c.live);
-      return d !== null && d < depthMin();
+      return d !== null && d < depthOkMin();
     },
   },
   {

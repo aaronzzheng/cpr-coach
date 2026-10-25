@@ -27,7 +27,7 @@ import { api, type Calibration, type LeaderboardEntry, type Summary } from "./ne
 import { BackendSocket } from "./net/backendSocket";
 import type { CompressionMsg, StateMsg } from "./net/messages";
 import { CameraPipeline, type CameraStatus } from "./pose/cameraPipeline";
-import { depthMax, depthMin, setPatient, type Patient } from "./patient";
+import { DEPTH_TOLERANCE_CM, depthMax, depthMin, setPatient, type Patient } from "./patient";
 import { SessionTracker } from "./session/sessionTracker";
 import { SKILLS } from "./session/skills";
 import { matchCommand, VoiceListener, type VoiceCommand } from "./voice/commands";
@@ -634,6 +634,7 @@ export default function App() {
                 unit="cm"
                 scale={[0, 8]}
                 target={[depthMin(), depthMax()]}
+                tolerance={DEPTH_TOLERANCE_CM}
                 outWords={[t("Too shallow"), t("Too deep")]}
                 source={live?.depth.source ?? null}
                 estimate={live?.depth.estimate ?? false}

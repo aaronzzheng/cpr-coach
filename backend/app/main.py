@@ -17,7 +17,14 @@ from pydantic import BaseModel
 
 from . import models as m
 from .broadcaster import Broadcaster
-from .config import DATA_DIR, SOURCE_STALE_S, TARGETS, WAVE_FS, WEB_DIST
+from .config import (
+    DATA_DIR,
+    DEPTH_TOLERANCE_CM,
+    SOURCE_STALE_S,
+    TARGETS,
+    WAVE_FS,
+    WEB_DIST,
+)
 from .dsp.compressions import Compression
 from .ingest import FRAME_IMU, decode_packet
 from .pipeline import WatchPipeline
@@ -123,6 +130,7 @@ def compression_msg(c: Compression) -> m.CompressionMsg:
         and TARGETS["rate_min_cpm"] <= c.inst_rate_cpm <= TARGETS["rate_max_cpm"]
     )
     lo, hi = session.depth_range
+    lo, hi = lo - DEPTH_TOLERANCE_CM, hi + DEPTH_TOLERANCE_CM
     depth_ok = None if c.depth_cm is None else lo <= c.depth_cm <= hi
     return m.CompressionMsg(
         t=c.t,

@@ -15,12 +15,14 @@ export interface MetricTileProps {
   outWords: [string, string];
   source: Source;
   estimate?: boolean;
+  /** Slack around the target band before a value counts as out of range. */
+  tolerance?: number;
 }
 
-export function MetricTile({ label, value, digits = 0, unit, scale, target, outWords, source, estimate = false }: MetricTileProps) {
+export function MetricTile({ label, value, digits = 0, unit, scale, target, outWords, source, estimate = false, tolerance = 0 }: MetricTileProps) {
   const [lo, hi] = scale;
   const pos = (v: number) => (Math.min(hi, Math.max(lo, v)) - lo) / (hi - lo);
-  const state = value === null ? "none" : value < target[0] ? "low" : value > target[1] ? "high" : "ok";
+  const state = value === null ? "none" : value < target[0] - tolerance ? "low" : value > target[1] + tolerance ? "high" : "ok";
   const chip =
     state === "ok" ? { cls: "good", text: t("On target"), Icon: CircleCheck } :
     state === "low" ? { cls: "warn", text: outWords[0], Icon: TriangleAlert } :

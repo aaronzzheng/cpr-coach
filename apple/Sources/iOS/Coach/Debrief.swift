@@ -43,11 +43,11 @@ nonisolated func debriefFindings(_ s: SessionSummary) -> [DebriefFinding] {
                          args: [pct(c), "\(s.pauses)", "\(Int(s.longestPause.rounded()))"]),
             fix: Phrase(format: "Keep pauses under 10 seconds; blood flow to the brain drops every time compressions stop."))))
     }
-    if let d = s.avgDepth, !s.depthEstimated, d < Targets.depthMin {
+    if let d = s.avgDepth, !s.depthEstimated, d < Targets.depthOkMin {
         out.append((1, DebriefFinding(
             fact: Phrase(format: "Average depth was %@ cm, under the %@ cm target.", args: [cm(d), cm(Targets.depthMin)]),
             fix: Phrase(format: "Lock your elbows and push with your body weight from the shoulders, not your arms."))))
-    } else if let d = s.avgDepth, !s.depthEstimated, d > Targets.depthMax {
+    } else if let d = s.avgDepth, !s.depthEstimated, d > Targets.depthOkMax {
         out.append((2, DebriefFinding(
             fact: Phrase(format: "Average depth was %@ cm, deeper than the %@ cm limit.", args: [cm(d), cm(Targets.depthMax)]),
             fix: Phrase(format: "Ease off slightly; going deeper raises the risk of injury without helping blood flow."))))

@@ -154,7 +154,7 @@ enum WatchCue: Equatable {
 
     static func evaluate(rate: Double?, depth: Double?, lastCompressionAge: Double?, runningS: Double) -> WatchCue? {
         if (lastCompressionAge ?? runningS) >= CoachConfig.noCompression + 1 { return runningS > 3 ? .keepPushing : nil }
-        if let d = depth, d < Targets.depthMin { return .harder }
+        if let d = depth, d < Targets.depthOkMin { return .harder }
         if let r = rate, r < Targets.rateMin { return .faster }
         if let r = rate, r > Targets.rateMax { return .slower }
         if let d = depth, d > CoachConfig.tooDeepCm { return .lessForce }

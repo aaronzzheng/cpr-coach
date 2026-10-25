@@ -2,7 +2,7 @@
 // camera-graded compressions, and posture percentages. Posted to the backend after stop,
 // which merges them with the watch metrics and computes the score.
 import { SESSION, TARGETS } from "../config";
-import { depthMax, depthMin } from "../patient";
+import { depthOkMax, depthOkMin } from "../patient";
 import type { PostureFrame } from "../pose/postureMetrics";
 
 export interface CameraMetrics {
@@ -87,7 +87,7 @@ export class SessionTracker {
     }
     if (depthCm !== null) {
       this.depths.push(depthCm);
-      this.depthOk.push(depthCm >= depthMin() && depthCm <= depthMax());
+      this.depthOk.push(depthCm >= depthOkMin() && depthCm <= depthOkMax());
       if (this.clockStart !== null) this.series.push([round(t - this.clockStart), round(depthCm)]);
     }
   }

@@ -18,3 +18,8 @@ export const setPatient = (p: Patient) => (current = p);
 export const depthMin = () => DEPTH[current][0];
 export const depthMax = () => DEPTH[current][1];
 export const tooDeepCm = () => TOO_DEEP[current];
+
+/** Depth within this of the band counts as on target (about the measurement error). */
+export const DEPTH_TOLERANCE_CM = 0.3;
+export const depthOkMin = () => depthMin() - DEPTH_TOLERANCE_CM;
+export const depthOkMax = () => depthMax() + DEPTH_TOLERANCE_CM;

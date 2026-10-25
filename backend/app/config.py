@@ -30,7 +30,7 @@ PEAK_COMMIT_AGE_S = 0.25
 PEAK_BUFFER_S = 4.0
 MAX_INTERVAL_S = 2.0
 RATE_WINDOW = 5
-DEPTH_WINDOW = 5
+DEPTH_WINDOW = 8
 CYCLE_MIN_S = 0.25
 CYCLE_MAX_S = 1.5
 
@@ -66,3 +66,5 @@ PATIENT_DEPTH_CM: dict[str, tuple[float, float]] = {
     "child": (4.5, 5.5),
     "infant": (3.5, 4.5),
 }
+# Depth within this of the band counts as on target (about the measurement error).
+DEPTH_TOLERANCE_CM = 0.3

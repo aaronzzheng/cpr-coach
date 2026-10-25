@@ -9,6 +9,11 @@ nonisolated enum Targets {
     /// Depth targets follow who is being resuscitated (AHA: about 5 cm adult and child, 4 cm infant).
     static var depthMin: Double { PatientProfile.current.depthRange.0 }
     static var depthMax: Double { PatientProfile.current.depthRange.1 }
+    /// Depth within this of the band counts as on target: about the measurement error, and it keeps
+    /// the coach from nagging at 4.9 cm. Coaching, colours and grading all use the widened band.
+    static let depthToleranceCm = 0.3
+    static var depthOkMin: Double { depthMin - depthToleranceCm }
+    static var depthOkMax: Double { depthMax + depthToleranceCm }
     static let pauseThreshold = 2.0
     static let ccfTarget = 0.80
     static let rescuerSwap = 120.0
@@ -35,7 +40,7 @@ nonisolated enum DSPConfig {
     static let peakBuffer = 4.0
     static let maxInterval = 2.0
     static let rateWindow = 5
-    static let depthWindow = 5
+    static let depthWindow = 8 // compressions in the depth median: steadier readout
     static let cycleMin = 0.25
     static let cycleMax = 1.5
     static let clockOffsetWindow = 50

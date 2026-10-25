@@ -407,7 +407,7 @@ nonisolated func coachableDepth(_ l: LiveState) -> Double? { l.depthEstimate ? n
 nonisolated func isAllGreen(_ l: LiveState) -> Bool {
     guard let age = l.lastCompressionAge, age < CoachConfig.noCompression,
           let r = l.rateCpm, r >= Targets.rateMin, r <= Targets.rateMax else { return false }
-    if let d = coachableDepth(l), d < Targets.depthMin || d > Targets.depthMax { return false }
+    if let d = coachableDepth(l), d < Targets.depthOkMin || d > Targets.depthOkMax { return false }
     return !l.elbowViolation && !l.alignViolation && !l.swapRecommended && !l.recoilIncomplete && l.handPlacement == nil
 }
 
@@ -423,7 +423,7 @@ nonisolated let coachRules: [CoachRule] = [
     CoachRule(id: "swap_soon", priority: 3, line: "You're tiring. Get ready to switch rescuers.", banner: "Switch soon", tone: .swap,
               duringWarmup: false, cooldown: 25) { l, _, _ in !l.swapRecommended && l.swapInS != nil },
     CoachRule(id: "too_shallow", priority: 3, line: "Push harder.", banner: "Push harder", tone: .urgent,
-              duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in (coachableDepth(l) ?? 99) < Targets.depthMin },
+              duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in (coachableDepth(l) ?? 99) < Targets.depthOkMin },
     CoachRule(id: "too_slow", priority: 4, line: "Faster.", banner: "Faster", tone: .warning,
               duringWarmup: false, cooldown: CoachConfig.ruleCooldown) { l, _, _ in (l.rateCpm ?? 999) < Targets.rateMin },
     CoachRule(id: "too_fast", priority: 5, line: "Slow down.", banner: "Slow down", tone: .warning,
@@ -560,7 +560,7 @@ nonisolated struct SessionTracker {
         }
         if let d = depth {
             depths.append(d)
-            depthOk.append(d >= Targets.depthMin && d <= Targets.depthMax)
+            depthOk.append(d >= Targets.depthOkMin && d <= Targets.depthOkMax)
             depthEstimated = depthEstimated || estimated
         }
     }
