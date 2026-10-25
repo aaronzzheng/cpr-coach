@@ -38,7 +38,7 @@ Keep the **app’s voice audible**; VO only in the gaps marked below. Trim pause
 
 | Time | Rescuer does / says | App says / shows | VO (in the gap) |
 |---|---|---|---|
-| 0:37 | “Hey Siri, start CPR with CPR Coach.” | Emergency screen opens | “Hands-free, from the first second.” |
+| 0:37 | Taps **Someone collapsed?** on the phone | Emergency screen opens | “One tap, and it takes over.” |
 | 0:40 | Taps the “patient”’s shoulders | “Tap their shoulders and shout. Are they responding? Say yes or no.” | |
 | 0:44 | “No.” | “Are they breathing normally? Gasping doesn’t count…” | |
 | 0:48 | “No.” | “No normal breathing. Calling for help. Start compressions now…” · green call pill + metronome | “It checks the person with you and gets help coming.” |
@@ -97,7 +97,6 @@ Keep the **app’s voice audible**; VO only in the gaps marked below. Trim pause
 
 1. **Slides (laptop):** present the deck full screen, screen-record ~10 s on each of the 12 slides. Trim in the edit.
 2. **Clip C + D, the live demo (Phone A screen recording + Phone B):** set up first: phone propped side-on about 1.5 m away (landscape if possible), watch app open, phone unlocked, volume up. Do 2–3 full takes of the table above; keep the cleanest.
-   - Siri tip: if “Hey Siri” isn’t recognised yet, start the screen recording and tap **Someone collapsed?** instead, then cut the Siri moment.
 3. **Clip E:** a normal session with a clear side view for 1–2 minutes until the depth tile reads “Watch + camera”. Keep the last few seconds.
 4. **Clip F:** long-press **Watch** twice (two taps), **Start session**, hands off. “Switch soon” appears after ~40 s. Keep the moment it appears.
 5. **Clip G:** 🌐 → Español, Start session, record 5 s of Spanish coaching. Switch back to English.
