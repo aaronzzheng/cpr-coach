@@ -12,19 +12,23 @@ HackOHI/O 2026 · Aaron Zheng, Jaeha Lee, Eason Zheng
 
 ## The problem
 
-About 263,000 Americans have a cardiac arrest outside a hospital each year. Only about four in ten get CPR from a bystander, and survival drops by up to ten percent for every minute without it. Most arrests happen at home, where the person helping has no recent training and no idea whether they're pushing hard enough or fast enough.
+About 263,000 Americans have a cardiac arrest outside a hospital each year that EMS treats. Only about four in ten get CPR from a bystander, and survival drops by up to ten percent for every minute without CPR. About seven in ten of these arrests happen at home, where the person helping usually has no recent training and no idea whether they're pushing hard enough or fast enough.
 
 We looked at what already exists:
 
-| | Live, in the moment | Sees your form | Measures depth | Nothing to buy |
+| | Helps during a real emergency | Checks your form | Measures depth | Nothing extra to buy* |
 |---|:-:|:-:|:-:|:-:|
-| CPR classes | – | – | ✓ | – |
+| CPR classes | – | In class only | In class only | – |
 | Feedback devices (under your hands) | ✓ | – | ✓ | – |
 | Phone-on-chest apps | ✓ | – | ✓ | ✓ |
 | 911 dispatcher | ✓ | – | – | ✓ |
 | **CPR Coach** | **✓** | **✓** | **✓** | **✓** |
 
-Classes only help during training. Professional feedback devices sit under your hands and can misread depth. A phone-on-chest app made no difference in a 240-person trial. And a 911 dispatcher can't see you.
+\* For CPR Coach, assuming you already own an iPhone and an Apple Watch.
+
+Classes only help during training. Feedback devices sit under your hands and are bought for trained responders; a single sensor can misread depth on a soft surface like a mattress. In a 240-person manikin study, a phone-on-chest app didn't improve effective compressions compared with no feedback at all. And a 911 dispatcher can't see you.
+
+Sources: [AHA CPR facts and stats](https://cpr.heart.org/en/resources/cpr-facts-and-stats) and the CARES registry (incidence, bystander CPR, home); "Comparing three CPR feedback devices and standard BLS in a single rescuer scenario: a randomised simulation study", [*Resuscitation*, 2014](https://www.resuscitationjournal.com/article/S0300-9572(13)00835-6/abstract) (the 240-person study).
 
 ## The idea
 
@@ -117,16 +121,17 @@ Before fusing, we line up the two clocks (see Challenges). Depth the app coaches
 ### 4. Deciding what to say
 
 The coaching engine is a list of rules in priority order:
-1. no compressions
-2. switch rescuers
-3. too shallow
-4. too slow or too fast
-5. hand placement
-6. recoil
-7. elbows
-8. alignment
-9. too deep
-10. praise
+1. give 2 breaths (in 30:2 mode)
+2. no compressions
+3. switch rescuers now
+4. too shallow, or getting tired (switch soon)
+5. too slow
+6. too fast, or hands in the wrong place
+7. chest not coming all the way up
+8. elbows bent
+9. shoulders not over hands
+10. too deep
+11. praise
 
 Every quarter second, the most important active rule sets the on-screen banner. Only one line is spoken at a time, at least 6 seconds apart, and the same correction repeats at most every 15 seconds, so it coaches without nagging.
 
@@ -174,8 +179,8 @@ In our simulated test sessions:
 That's a small fraction of the target zones (5–6 cm and 100–120 per minute).
 
 The tests:
-- 43 backend tests, including one that compiles the watch's Swift packet encoder and checks the backend decodes it byte for byte
-- 29 web tests for the coaching rules, posture, fatigue forecast and fusion
+- 56 backend tests, including one that compiles the watch's Swift packet encoder and checks the backend decodes it byte for byte
+- 36 web tests for the coaching rules, posture, fatigue forecast and fusion
 - a synthetic watch simulator with scenarios (good, shallow, fast, slow, fatigue, chaotic) and recorded sessions that replay through the real pipeline
 - the Swift core is written in plain Foundation, so it type-checks for both iPhone and watch with `make swift-check`
 
@@ -197,6 +202,7 @@ The tests:
 apple/      iPhone + Apple Watch apps (Swift 6, XcodeGen project in project.yml)
   Sources/Watch       watch app: motion streaming, workout, on-watch coaching
   Sources/Core        shared watch DSP, config, translations
+  Sources/Widgets     Live Activity on the lock screen
   Sources/iOS/Coach   camera pose, depth fusion, coaching, voice, debrief, report
 web/        React + TypeScript web version and laptop dashboard
 backend/    FastAPI server, Python signal pipeline, simulator and replay tools, tests
