@@ -1,6 +1,6 @@
 # CPR Coach: final 3-minute video script
 
-HackOHI/O 2026 · Aaron Zheng and Jaeha Lee · due **10:00 AM Sunday** · MP4 · ≤ 500 MB · 3:00 max ·
+HackOHI/O 2026 · Aaron Zheng, Jaeha Lee and Eason Zheng · due **10:00 AM Sunday** · MP4 · ≤ 500 MB · 3:00 max ·
 must show the key features **and** the technical challenges we overcame. A live 6-minute Q&A follows.
 
 **8 slides, ~75 s. The app itself, ~64 s.** Runs about 2:55, leaving ~5 s of slack (skip the optional tester if a take runs long).
@@ -14,7 +14,7 @@ Slide images: `~/Downloads/CPR Coach Video Slides/` (1920×1080 PNGs + a PDF).
 Phone B, wide: someone slumps to the floor; a bystander kneels beside them, unsure. No VO.
 
 ## 0:03 – 0:08 · SLIDE 1 · Intro
-**VO:** "Hi, we're Aaron Zheng and Jaeha Lee, and this is CPR Coach."
+**VO:** "Hi, we're Aaron, Jaeha and Eason, and this is CPR Coach."
 *Communication*
 
 ## 0:08 – 0:20 · SLIDE 2 · Problem
@@ -76,7 +76,7 @@ Edit: Phone B's wide shot full screen, Phone A's screen recording picture-in-pic
 3. **Infant:** tap Infant on the setup screen.
 4. **Collapse:** the staged collapse (3 s used).
 5. **Tester (optional):** a friend tries it, then says one sentence.
-6. **VO:** read all VO lines last, in one quiet take, over the edit. Aaron and Jaeha can split them (for example, one reads slides 1–3 and the demo, the other reads slides 4–8).
+6. **VO:** read all VO lines last, in one quiet take, over the edit. The three of you can split them (for example, one reads slides 1–3, one the demo, one slides 4–8).
 
 The slides are already exported as images: drop them straight into the editor.
 
