@@ -80,6 +80,9 @@ nonisolated enum PoseConfig {
     static let postureWindow = 2.0
     static let postureWindowFrac = 0.6
     static let armLengthCm = 55.0
+    /// Added to the 2D elbow angle when no 3D pose is available (a straight arm seen at an angle
+    /// projects to a smaller angle; it never looks straighter than it is).
+    static let perspectiveSlackDeg = 8.0
     static let armLengthSamples = 90
     // Camera compression fallback (wrist height, normalized 0–1 image coordinates).
     static let wristEmaAlpha = 0.5

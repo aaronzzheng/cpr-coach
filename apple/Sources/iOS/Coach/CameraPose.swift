@@ -1,5 +1,8 @@
 // Front camera → Apple Vision body pose, on a background queue. Frames are delivered upright and
 // mirrored like the preview, so joint coordinates line up with what the rescuer sees on screen.
+// The camera runs at its widest field of view (full 4:3 sensor, minimum zoom, Center Stage off) so
+// a phone on the floor sees the whole upper body. A 3D body pose runs alongside the 2D one to
+// measure the true elbow angle, which a flat image distorts when the arm isn't side-on.
 import AVFoundation
 import UIKit
 import Vision
@@ -12,6 +15,9 @@ nonisolated struct PoseSample: Sendable {
     var imageSize: CGSize
     /// A second, lying-down body (the patient): shoulder and hip midpoints, when Vision finds one.
     var patientTorso: Torso? = nil
+    /// True 3D elbow angles (degrees) from the 3D body pose, when recent; nil falls back to 2D.
+    var elbow3DLeft: Double? = nil
+    var elbow3DRight: Double? = nil
 }
 
 nonisolated final class CameraPose: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
@@ -25,12 +31,15 @@ nonisolated final class CameraPose: NSObject, AVCaptureVideoDataOutputSampleBuff
     private var rotation: AVCaptureDevice.RotationCoordinator?
     private var observations: [NSKeyValueObservation] = []
     private let request = VNDetectHumanBodyPoseRequest()
+    private let request3D = VNDetectHumanBodyPose3DRequest()
+    private var frameIndex = 0
+    private var last3D: (t: Double, left: Double?, right: Double?)?
     private let onPose: @Sendable (PoseSample) -> Void
 
     init(onPose: @escaping @Sendable (PoseSample) -> Void) {
         self.onPose = onPose
         previewLayer = AVCaptureVideoPreviewLayer(session: session)
-        previewLayer.videoGravity = .resizeAspectFill
+        previewLayer.videoGravity = .resizeAspect // show the whole frame, never crop the body out
         super.init()
     }
 
@@ -57,15 +66,39 @@ nonisolated final class CameraPose: NSObject, AVCaptureVideoDataOutputSampleBuff
 
     private func configure(position: AVCaptureDevice.Position) -> Bool {
         guard device == nil else { return true }
+        // Center Stage crops in to follow faces; we need the whole upper body instead.
+        if AVCaptureDevice.isCenterStageEnabled || AVCaptureDevice.centerStageControlMode != .app {
+            AVCaptureDevice.centerStageControlMode = .app
+            AVCaptureDevice.isCenterStageEnabled = false
+        }
         guard let cam = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position),
               let input = try? AVCaptureDeviceInput(device: cam) else { return false }
         session.beginConfiguration()
-        session.sessionPreset = .hd1280x720
         guard session.canAddInput(input), session.canAddOutput(output) else {
             session.commitConfiguration()
             return false
         }
         session.addInput(input)
+        // Widest view: a 4:3 format (the full sensor, no 16:9 crop) of modest size, at 30 fps.
+        let wide = cam.formats.filter { f in
+            let d = CMVideoFormatDescriptionGetDimensions(f.formatDescription)
+            return d.width <= 1920 && d.width >= 640 && abs(Double(d.width) / Double(d.height) - 4.0 / 3) < 0.02
+                && f.videoSupportedFrameRateRanges.contains { $0.maxFrameRate >= 30 }
+        }.max { a, b in
+            if a.videoFieldOfView != b.videoFieldOfView { return a.videoFieldOfView < b.videoFieldOfView }
+            return CMVideoFormatDescriptionGetDimensions(a.formatDescription).width
+                > CMVideoFormatDescriptionGetDimensions(b.formatDescription).width // prefer the smaller one
+        }
+        if let wide, (try? cam.lockForConfiguration()) != nil {
+            session.sessionPreset = .inputPriority
+            cam.activeFormat = wide
+            cam.activeVideoMinFrameDuration = CMTime(value: 1, timescale: 30)
+            cam.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: 30)
+            cam.videoZoomFactor = cam.minAvailableVideoZoomFactor
+            cam.unlockForConfiguration()
+        } else {
+            session.sessionPreset = .hd1280x720
+        }
         output.alwaysDiscardsLateVideoFrames = true
         output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
         output.setSampleBufferDelegate(self, queue: queue)
@@ -108,8 +141,29 @@ nonisolated final class CameraPose: NSObject, AVCaptureVideoDataOutputSampleBuff
         guard let pixels = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         let size = CGSize(width: CVPixelBufferGetWidth(pixels), height: CVPixelBufferGetHeight(pixels))
         let handler = VNImageRequestHandler(cvPixelBuffer: pixels, orientation: .up)
-        try? handler.perform([request])
         let t = ProcessInfo.processInfo.systemUptime
+        // The 3D pose is heavier; every third frame (~10 Hz) is plenty for an elbow angle.
+        frameIndex += 1
+        if frameIndex % 3 == 0 {
+            try? handler.perform([request, request3D])
+            if let body3D = request3D.results?.first {
+                func angle(_ s: VNHumanBodyPose3DObservation.JointName, _ e: VNHumanBodyPose3DObservation.JointName,
+                           _ w: VNHumanBodyPose3DObservation.JointName) -> Double? {
+                    guard let ps = try? body3D.recognizedPoint(s), let pe = try? body3D.recognizedPoint(e),
+                          let pw = try? body3D.recognizedPoint(w) else { return nil }
+                    let a = ps.position.columns.3, b = pe.position.columns.3, c = pw.position.columns.3
+                    let v1 = SIMD3<Double>(Double(a.x - b.x), Double(a.y - b.y), Double(a.z - b.z))
+                    let v2 = SIMD3<Double>(Double(c.x - b.x), Double(c.y - b.y), Double(c.z - b.z))
+                    let n = (v1 * v1).sum().squareRoot() * (v2 * v2).sum().squareRoot()
+                    guard n > 0 else { return nil }
+                    return acos(min(1, max(-1, (v1 * v2).sum() / n))) * 180 / .pi
+                }
+                last3D = (t, angle(.leftShoulder, .leftElbow, .leftWrist), angle(.rightShoulder, .rightElbow, .rightWrist))
+            }
+        } else {
+            try? handler.perform([request])
+        }
+        let fresh3D = last3D.flatMap { t - $0.t < 0.5 ? $0 : nil }
         // Vision: normalized, origin bottom-left → pixels, origin top-left.
         func px(_ p: VNRecognizedPoint) -> CGPoint { CGPoint(x: p.x * size.width, y: (1 - p.y) * size.height) }
         func torso(_ b: VNHumanBodyPoseObservation) -> Torso? {
@@ -138,6 +192,7 @@ nonisolated final class CameraPose: NSObject, AVCaptureVideoDataOutputSampleBuff
             return ArmJoints(shoulder: px(ps), elbow: px(pe), wrist: px(pw), confidence: min(ps.confidence, pe.confidence, pw.confidence))
         }
         onPose(PoseSample(t: t, left: arm(.leftShoulder, .leftElbow, .leftWrist),
-                          right: arm(.rightShoulder, .rightElbow, .rightWrist), imageSize: size, patientTorso: patient))
+                          right: arm(.rightShoulder, .rightElbow, .rightWrist), imageSize: size, patientTorso: patient,
+                          elbow3DLeft: fresh3D?.left, elbow3DRight: fresh3D?.right))
     }
 }

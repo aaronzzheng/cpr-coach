@@ -26,6 +26,8 @@ nonisolated struct PostureFrame {
     var elbowViolationFrac = 0.0
     var alignViolationFrac = 0.0
     var armLengthPx: Double?
+    /// The elbow angle came from the 3D pose (true angle) rather than the flat image.
+    var elbow3D = false
 }
 
 nonisolated func angleDeg(_ a: CGPoint, _ b: CGPoint, _ c: CGPoint) -> Double {
@@ -47,8 +49,11 @@ nonisolated struct PostureTracker {
     private var misalignedSince: Double?
     private var window: [(t: Double, elbow: Bool, align: Bool)] = []
     private var armLengths: [Double] = []
+    private var uses3D = false
 
-    mutating func update(left: ArmJoints?, right: ArmJoints?, t: Double) -> PostureFrame {
+    /// `elbow3D…`: true 3D elbow angles when available; the 2D image angle shrinks when the arm
+    /// isn't side-on to the camera, so a straight arm can read as bent.
+    mutating func update(left: ArmJoints?, right: ArmJoints?, t: Double, elbow3DLeft: Double? = nil, elbow3DRight: Double? = nil) -> PostureFrame {
         window.removeAll { t - $0.t > PoseConfig.postureWindow }
         let current = side == .left ? left : right
         let other = side == .left ? right : left
@@ -60,7 +65,10 @@ nonisolated struct PostureTracker {
             elbowEma = nil; bentSince = nil; misalignedSince = nil
             return frame(t: t, visible: false, joints: nil, elbow: nil, align: nil)
         }
-        let raw = angleDeg(arm.shoulder, arm.elbow, arm.wrist)
+        let angle3D = side == .left ? elbow3DLeft : elbow3DRight
+        // Without 3D, allow a few more degrees: perspective can only make a straight arm look bent.
+        let raw = angle3D ?? min(180, angleDeg(arm.shoulder, arm.elbow, arm.wrist) + PoseConfig.perspectiveSlackDeg)
+        uses3D = angle3D != nil
         elbowEma = elbowEma.map { PoseConfig.elbowEmaAlpha * raw + (1 - PoseConfig.elbowEmaAlpha) * $0 } ?? raw
         armLengths.append(hypot(Double(arm.wrist.x - arm.shoulder.x), Double(arm.wrist.y - arm.shoulder.y)))
         if armLengths.count > PoseConfig.armLengthSamples { armLengths.removeFirst() }
@@ -81,6 +89,7 @@ nonisolated struct PostureTracker {
         f.elbowViolationFrac = n > 0 ? Double(window.filter(\.elbow).count) / n : 0
         f.alignViolationFrac = n > 0 ? Double(window.filter(\.align).count) / n : 0
         f.armLengthPx = median(armLengths)
+        f.elbow3D = uses3D
         return f
     }
 }

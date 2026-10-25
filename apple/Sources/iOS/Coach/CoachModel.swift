@@ -182,7 +182,7 @@ final class CoachModel {
 
     private func handlePose(_ s: PoseSample) {
         poseImageSize = s.imageSize
-        let p = tracker.update(left: s.left, right: s.right, t: s.t)
+        let p = tracker.update(left: s.left, right: s.right, t: s.t, elbow3DLeft: s.elbow3DLeft, elbow3DRight: s.elbow3DRight)
         posture = p
         hands.update(t: s.t, wrist: p.visible ? p.joints?.wrist : nil, torso: s.patientTorso)
         guard p.visible, let wrist = p.joints?.wrist else { return }
