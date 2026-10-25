@@ -248,34 +248,55 @@ private struct RunningControls: View {
     @Environment(CoachModel.self) private var coach
 
     var body: some View {
+        // Full labels when the row fits; on a narrow camera card, compact icon buttons instead
+        // (labels never get squeezed into "AE / D" or "St…").
+        ViewThatFits(in: .horizontal) {
+            row(compact: false)
+            row(compact: true)
+        }
+    }
+
+    private func row(compact: Bool) -> some View {
         @Bindable var coach = coach
-        HStack(spacing: 10) {
+        return HStack(spacing: compact ? 8 : 10) {
             if coach.mode == .emergency {
                 GlassButton(symbol: "phone.fill", on: true, label: tr("Call %@", CoachModel.emergencyNumber)) { coach.callEmergency() }
                 Button { coach.aedArrived() } label: {
-                    Text("AED")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .frame(height: 44)
-                        .background(Palette.good.opacity(coach.aedArrivedAt == nil ? 0.9 : 0.5), in: Capsule())
+                    Group {
+                        if compact { Image(systemName: "bolt.heart.fill").font(.system(size: 17, weight: .semibold)) }
+                        else { Text("AED").font(.headline) }
+                    }
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.horizontal, compact ? 0 : 14)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .background(Palette.good.opacity(coach.aedArrivedAt == nil ? 0.9 : 0.5), in: Capsule())
                 }
                 .accessibilityLabel(tr("The AED is here"))
             }
-            GlassButton(symbol: "metronome.fill", on: coach.metronomeOn, label: tr("Metronome")) { coach.metronomeOn.toggle() }
+            if !compact || coach.mode != .emergency {
+                GlassButton(symbol: "metronome.fill", on: coach.metronomeOn, label: tr("Metronome")) { coach.metronomeOn.toggle() }
+            }
             GlassButton(symbol: coach.muted ? "speaker.slash.fill" : "speaker.wave.2.fill", on: !coach.muted, label: tr("Voice coach")) {
                 coach.muted.toggle()
             }
             Button { coach.stop() } label: {
-                Text(tr("Stop"))
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 20)
-                    .frame(height: 44)
-                    .background(Palette.urgent, in: Capsule())
+                Group {
+                    if compact { Image(systemName: "stop.fill").font(.system(size: 17, weight: .bold)) }
+                    else { Text(tr("Stop")).font(.headline) }
+                }
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, compact ? 0 : 20)
+                .frame(minWidth: 44, minHeight: 44)
+                .background(Palette.urgent, in: Capsule())
             }
+            .accessibilityLabel(tr("Stop"))
             .accessibilityHint(tr("Ends the session and shows your score"))
         }
+        .fixedSize()
     }
 }
 
