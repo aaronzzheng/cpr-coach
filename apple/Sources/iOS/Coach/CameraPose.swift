@@ -39,7 +39,7 @@ nonisolated final class CameraPose: NSObject, AVCaptureVideoDataOutputSampleBuff
     init(onPose: @escaping @Sendable (PoseSample) -> Void) {
         self.onPose = onPose
         previewLayer = AVCaptureVideoPreviewLayer(session: session)
-        previewLayer.videoGravity = .resizeAspect // show the whole frame, never crop the body out
+        previewLayer.videoGravity = .resizeAspectFill // the card matches the video's shape, so nothing is cut
         super.init()
     }
 

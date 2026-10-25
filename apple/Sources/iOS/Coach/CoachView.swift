@@ -231,8 +231,16 @@ private struct CameraCard: View {
                 .padding(12)
             }
         }
+        // The card takes the video's own shape, so the preview fills it edge to edge without
+        // cropping the body (3:4 upright, 4:3 with the phone on its side).
+        .aspectRatio(aspect, contentMode: .fit)
         .clipShape(cardShape)
-        .frame(maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var aspect: CGFloat {
+        let s = coach.poseImageSize
+        return s.width > 0 && s.height > 0 ? s.width / s.height : 3.0 / 4.0
     }
 }
 
@@ -1070,8 +1078,9 @@ struct CameraPreview: UIViewRepresentable {
     }
 }
 
-/// Draws the tracked arm over the preview. The preview uses aspect-fit (and is mirrored like the
-/// analysed frames), so image pixels map to view points with the same fit scale and centring.
+/// Draws the tracked arm over the preview. The preview uses aspect-fill in a card of the video's
+/// own shape (and is mirrored like the analysed frames), so image pixels map to view points with
+/// the same fill scale and centring.
 struct SkeletonOverlay: View {
     let posture: PostureFrame?
     let imageSize: CGSize
@@ -1079,7 +1088,7 @@ struct SkeletonOverlay: View {
     var body: some View {
         Canvas { ctx, size in
             guard let p = posture, p.visible, let j = p.joints, imageSize.width > 0 else { return }
-            let scale = min(size.width / imageSize.width, size.height / imageSize.height)
+            let scale = max(size.width / imageSize.width, size.height / imageSize.height)
             let origin = CGPoint(x: (size.width - imageSize.width * scale) / 2, y: (size.height - imageSize.height * scale) / 2)
             func map(_ q: CGPoint) -> CGPoint { CGPoint(x: origin.x + q.x * scale, y: origin.y + q.y * scale) }
             let s = map(j.shoulder), e = map(j.elbow), w = map(j.wrist)

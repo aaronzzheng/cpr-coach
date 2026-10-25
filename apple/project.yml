@@ -14,7 +14,7 @@ settings:
     SWIFT_VERSION: "6.0"
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "0.1"
-    CURRENT_PROJECT_VERSION: "3"
+    CURRENT_PROJECT_VERSION: "4"
     GENERATE_INFOPLIST_FILE: YES
     INFOPLIST_KEY_CFBundleDisplayName: CPR Coach
     INFOPLIST_KEY_NSHealthShareUsageDescription: Reads your heart rate during CPR practice.
