@@ -8,7 +8,7 @@ HackOHI/O 2026 · Aaron Zheng, Jaeha Lee, Eason Zheng
 
 ## Demo video
 
-<!-- VIDEO: on github.com, edit this file and drag "CPR Coach README video.mp4" onto this line. -->
+https://youtu.be/oubjYkOBK_0
 
 ## The problem
 
