@@ -120,19 +120,30 @@ private struct TopBar: View {
     @Environment(CoachModel.self) private var coach
 
     var body: some View {
-        HStack(spacing: 16) {
-            SourceDot(label: tr("Watch"), on: coach.watchStreaming)
+        // Full labels when they fit; otherwise icons only, so nothing wraps or truncates.
+        ViewThatFits(in: .horizontal) {
+            row(compact: false)
+            row(compact: true)
+        }
+        .frame(height: 36)
+    }
+
+    private func row(compact: Bool) -> some View {
+        HStack(spacing: compact ? 10 : 16) {
+            SourceDot(label: tr("Watch"), symbol: "applewatch", compact: compact, on: coach.watchStreaming)
                 .onLongPressGesture(minimumDuration: 1) { coach.toggleDemoReplay() }
                 .sensoryFeedback(.success, trigger: coach.demoReplayStep)
-            SourceDot(label: tr("Arm in view"), on: coach.posture?.visible == true)
+            SourceDot(label: tr("Arm in view"), symbol: "figure.arms.open", compact: compact, on: coach.posture?.visible == true)
             Spacer(minLength: 0)
             if let since = coach.simulatedCallSince, coach.phase == .running {
                 Button { coach.endSimulatedCall() } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "phone.fill").font(.caption.weight(.bold))
-                        Text(CoachModel.emergencyNumber).font(.footnote.weight(.semibold))
+                        if !compact { Text(CoachModel.emergencyNumber).font(.footnote.weight(.semibold)) }
                         Text(since, style: .timer).font(.footnote.monospacedDigit())
                     }
+                    .lineLimit(1)
+                    .fixedSize()
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10)
                     .frame(height: 28)
@@ -141,11 +152,13 @@ private struct TopBar: View {
                 .accessibilityLabel(tr("Calling %@", CoachModel.emergencyNumber))
                 .accessibilityHint(tr("End demo call"))
             }
-            if coach.listening { ListeningIndicator(heard: coach.heard) }
+            if coach.listening { ListeningIndicator(heard: coach.heard, compact: compact) }
             if let hr = coach.live.heartRate {
                 Label("\(Int(hr))", systemImage: "heart.fill")
                     .font(.headline.monospacedDigit())
                     .labelStyle(TintedIconLabel(tint: Palette.accent))
+                    .lineLimit(1)
+                    .fixedSize()
                     .accessibilityLabel(tr("Heart rate %@", "\(Int(hr))"))
             }
             if coach.phase == .running {
@@ -153,22 +166,30 @@ private struct TopBar: View {
                 Text(coach.mode == .skillsCheck ? clock(max(0, SkillsCheck.durationS - coach.elapsed)) : clock(coach.elapsed))
                     .font(.system(.title3, weight: .semibold).monospacedDigit())
                     .foregroundStyle(Palette.text)
+                    .lineLimit(1)
+                    .fixedSize()
             }
         }
-        .frame(height: 36)
     }
 }
 
 private struct SourceDot: View {
     let label: String
+    let symbol: String
+    var compact = false
     let on: Bool
     var body: some View {
         HStack(spacing: 6) {
-            Circle()
-                .fill(on ? Palette.good : .clear)
-                .overlay(Circle().strokeBorder(on ? .clear : Palette.faint, lineWidth: 1.5))
-                .frame(width: 7, height: 7)
-            Text(label).font(.footnote.weight(.medium))
+            if compact {
+                Image(systemName: symbol).font(.footnote.weight(.semibold))
+                    .foregroundStyle(on ? Palette.good : Palette.faint)
+            } else {
+                Circle()
+                    .fill(on ? Palette.good : .clear)
+                    .overlay(Circle().strokeBorder(on ? .clear : Palette.faint, lineWidth: 1.5))
+                    .frame(width: 7, height: 7)
+                Text(label).font(.footnote.weight(.medium)).lineLimit(1).fixedSize()
+            }
         }
         .foregroundStyle(on ? Palette.muted : Palette.faint)
         .accessibilityElement(children: .combine)
@@ -667,16 +688,20 @@ private struct LanguageMenu: View {
 /// Mic + the command just understood, so the rescuer knows they were heard without looking long.
 private struct ListeningIndicator: View {
     let heard: String?
+    var compact = false
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: heard == nil ? "mic.fill" : "checkmark")
                 .font(.footnote.weight(.bold))
                 .foregroundStyle(heard == nil ? Palette.accent : Palette.good)
                 .symbolEffect(.pulse, isActive: heard == nil)
-            Text(heard ?? tr("Listening"))
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(heard == nil ? Palette.muted : Palette.text)
-                .lineLimit(1)
+            if let text = heard ?? (compact ? nil : tr("Listening")) {
+                Text(text)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(heard == nil ? Palette.muted : Palette.text)
+                    .lineLimit(1)
+                    .fixedSize()
+            }
         }
         .padding(.horizontal, 10)
         .frame(height: 28)

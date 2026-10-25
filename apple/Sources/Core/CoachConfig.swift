@@ -59,13 +59,13 @@ nonisolated enum DSPConfig {
 
 nonisolated enum CoachConfig {
     static let evalInterval = 0.25
-    static let globalGap = 3.0
-    static let ruleCooldown = 8.0
+    static let globalGap = 6.0
+    static let ruleCooldown = 15.0
     static let warmup = 5.0
     static let noCompression = 2.0
     static var tooDeepCm: Double { PatientProfile.current.tooDeepCm }
     static let praiseAfter = 10.0
-    static let praiseCooldown = 15.0
+    static let praiseCooldown = 30.0
     static let watchFresh = 3.0
     static let stale = 3.0
     static let sessionClockGrace = 5.0

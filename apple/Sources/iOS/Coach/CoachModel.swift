@@ -120,7 +120,8 @@ final class CoachModel {
             Task { @MainActor in p() }
         }
         listener.onPhrase = { [weak self] text in self?.handlePhrase(text) ?? false }
-        listener.isEchoWindow = { [weak self] in self?.audio.echoWindow ?? false }
+        listener.echoLine = { [weak self] in self?.audio.echoLine }
+        audio.onSpeechEnd = { [weak self] in self?.listener.coachFinished() }
         Task { [weak self] in
             while true {
                 try? await Task.sleep(for: .milliseconds(100))
@@ -397,18 +398,18 @@ final class CoachModel {
             guard running else { return false }
             showHeard(tr("Swap"))
             swapRescuers()
-            audio.say(tr("Switch now. Next rescuer, start compressions."), priority: 0)
+            audio.say(tr("Switch now. Next rescuer, start compressions."), priority: 0, interrupt: true)
         case .time:
             guard running else { return false }
             showHeard(tr("How long"))
             let t = Int(elapsed)
             let n = "\(live.count)"
             audio.say(t >= 60 ? tr("%@ minutes %@ seconds, %@ compressions.", "\(t / 60)", "\(t % 60)", n)
-                              : tr("%@ seconds, %@ compressions.", "\(t)", n), priority: 0)
+                              : tr("%@ seconds, %@ compressions.", "\(t)", n), priority: 0, interrupt: true)
         case .status:
             guard running else { return false }
             showHeard(tr("How am I doing"))
-            audio.say(statusLine(), priority: 0)
+            audio.say(statusLine(), priority: 0, interrupt: true)
         case .call:
             showHeard(tr("Call for help"))
             callEmergency()
@@ -528,7 +529,7 @@ final class CoachModel {
         }
         banner = nil
         if mode == .emergency { log(.stopped) }
-        audio.say(mode == .emergency ? tr("Stopped.") : tr("Stop. Well done."), priority: 0)
+        audio.say(mode == .emergency ? tr("Stopped.") : tr("Stop. Well done."), priority: 0, interrupt: true)
         phase = .summary
         updateListening()
     }

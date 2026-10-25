@@ -94,15 +94,15 @@ final class VoiceListener {
     private(set) var state: State = .off
     /// New words heard since the last report; return true if they were a command (consumes them).
     var onPhrase: ((String) -> Bool)?
-    /// True while the coach is speaking (and briefly after), so its own voice is ignored.
-    var isEchoWindow: () -> Bool = { false }
+    /// The line the coach is speaking right now, if any; its words are ignored so it never answers itself.
+    var echoLine: () -> String? = { nil }
+    private var language: AppLanguage = .en
 
     private let engine = AVAudioEngine()
     private var recognizer: SFSpeechRecognizer?
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private let box = RequestBox()
     private var task: SFSpeechRecognitionTask?
-    private var consumed = 0
     private var taskStarted = Date.distantPast
     private var generation = 0
 
@@ -111,6 +111,7 @@ final class VoiceListener {
         guard await Self.authorize() else { state = .unavailable; return }
         guard let r = SFSpeechRecognizer(locale: language.locale), r.isAvailable else { state = .unavailable; return }
         recognizer = r
+        self.language = language
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0 else { state = .unavailable; return }
@@ -149,7 +150,6 @@ final class VoiceListener {
         req.taskHint = .confirmation
         request = req
         box.set(req)
-        consumed = 0
         taskStarted = Date()
         generation += 1
         let gen = generation
@@ -160,21 +160,36 @@ final class VoiceListener {
         }
     }
 
+    /// The coach just finished a line: start a fresh transcript so its words don't linger in it.
+    func coachFinished() {
+        guard state == .listening else { return }
+        newTask()
+    }
+
     private func handle(text: String?, done: Bool, gen: Int) {
         guard gen == generation else { return }
-        if let text, text.count > consumed {
-            if isEchoWindow() {
-                consumed = text.count // the coach talking; skip it
-            } else {
-                let fresh = String(text.dropFirst(consumed))
-                if onPhrase?(fresh) == true {
-                    // Start over so the same words can't fire twice.
-                    newTask()
-                    return
-                }
+        if let text, !text.isEmpty {
+            var heard = text
+            if let echo = echoLine() { heard = Self.removing(echo, from: text, lang: language) }
+            if !heard.isEmpty, onPhrase?(heard) == true {
+                // Start over so the same words can't fire twice.
+                newTask()
+                return
             }
         }
         if done || Date().timeIntervalSince(taskStarted) > 50 { newTask() }
+    }
+
+    /// The rescuer's words with the coach's own words taken out. Languages without spaces can't be
+    /// split into words, so there the whole phrase is ignored while the coach talks.
+    nonisolated static func removing(_ echo: String, from text: String, lang: AppLanguage) -> String {
+        if lang.unspaced { return "" }
+        func words(_ s: String) -> [String] {
+            s.lowercased().replacingOccurrences(of: "’", with: "'")
+                .split(whereSeparator: { !$0.isLetter && !$0.isNumber && $0 != "'" }).map(String.init)
+        }
+        let coach = Set(words(echo))
+        return words(text).filter { !coach.contains($0) }.joined(separator: " ")
     }
 
     private static func authorize() async -> Bool {

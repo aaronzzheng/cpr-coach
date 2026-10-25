@@ -7,6 +7,9 @@ final class CoachAudio: NSObject, AVSpeechSynthesizerDelegate {
     private let synth = AVSpeechSynthesizer()
     private var lastSpeechEnd = Date.distantPast
     private var currentPriority: Int?
+    private var currentLine: String?
+    /// Called when the coach finishes talking, so voice commands can start listening afresh.
+    var onSpeechEnd: (() -> Void)?
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
     private var engineReady = false
@@ -15,8 +18,11 @@ final class CoachAudio: NSObject, AVSpeechSynthesizerDelegate {
         didSet { if muted { synth.stopSpeaking(at: .immediate) } }
     }
 
-    /// The coach is talking, or just stopped (recognition lags speech), so voice commands ignore it.
-    var echoWindow: Bool { synth.isSpeaking || Date().timeIntervalSince(lastSpeechEnd) < 1.2 }
+    /// What the coach is saying (or said a moment ago), so voice commands can ignore its words
+    /// without ignoring the rescuer talking over it.
+    var echoLine: String? {
+        synth.isSpeaking || Date().timeIntervalSince(lastSpeechEnd) < 0.3 ? currentLine : nil
+    }
 
     override init() {
         super.init()
@@ -42,11 +48,12 @@ final class CoachAudio: NSObject, AVSpeechSynthesizerDelegate {
         }
     }
 
-    /// Lower priority number = more important; only a more important line interrupts.
-    func say(_ text: String, priority: Int) {
+    /// Lower priority number = more important; only a more important line interrupts, unless
+    /// `interrupt` (a reply the rescuer just asked for).
+    func say(_ text: String, priority: Int, interrupt: Bool = false) {
         guard !muted else { return }
         if synth.isSpeaking {
-            if let cur = currentPriority, priority >= cur { return }
+            if !interrupt, let cur = currentPriority, priority >= cur { return }
             synth.stopSpeaking(at: .immediate)
         }
         let u = AVSpeechUtterance(string: text)
@@ -54,6 +61,7 @@ final class CoachAudio: NSObject, AVSpeechSynthesizerDelegate {
         u.voice = AVSpeechSynthesisVoice(language: lang.locale.identifier(.bcp47))
         u.rate = lang == .en ? 0.55 : 0.5
         currentPriority = priority
+        currentLine = text
         synth.speak(u)
     }
 
@@ -85,11 +93,16 @@ final class CoachAudio: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, didFinish u: AVSpeechUtterance) {
-        Task { @MainActor in self.lastSpeechEnd = Date() }
+        Task { @MainActor in self.speechEnded() }
     }
 
     nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, didCancel u: AVSpeechUtterance) {
-        Task { @MainActor in self.lastSpeechEnd = Date() }
+        Task { @MainActor in self.speechEnded() }
+    }
+
+    private func speechEnded() {
+        lastSpeechEnd = Date()
+        if !synth.isSpeaking { onSpeechEnd?() } // not when cut off by the next line
     }
 
     func stopMetronome() {

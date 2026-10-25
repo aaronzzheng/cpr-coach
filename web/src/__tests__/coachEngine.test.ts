@@ -42,23 +42,23 @@ describe("CoachEngine", () => {
   it("respects the global gap and per-rule cooldown", () => {
     const e = new CoachEngine();
     expect(e.evaluate(live({ depth: 4 }), 10, 10).speak?.id).toBe("too_shallow");
-    // Within the 3 s global gap: banner yes, voice no.
+    // Within the 6 s global gap: banner yes, voice no.
     const quiet = e.evaluate(live({ depth: 4 }), 11, 11);
     expect(quiet.banner?.id).toBe("too_shallow");
     expect(quiet.speak).toBeNull();
     // After the gap, too_shallow is still cooling down, so the next issue speaks.
-    expect(e.evaluate(live({ depth: 4, cpm: 130 }), 13.1, 13.1).speak?.id).toBe("too_fast");
-    // After 8 s, too_shallow can repeat.
-    expect(e.evaluate(live({ depth: 4 }), 18.1, 18.1).speak?.id).toBe("too_shallow");
+    expect(e.evaluate(live({ depth: 4, cpm: 130 }), 16.1, 16.1).speak?.id).toBe("too_fast");
+    // After 15 s, too_shallow can repeat.
+    expect(e.evaluate(live({ depth: 4 }), 25.1, 25.1).speak?.id).toBe("too_shallow");
   });
 
-  it("praises after 10 s all green, at most every 15 s", () => {
+  it("praises after 10 s all green, at most every 30 s", () => {
     const e = new CoachEngine();
     const spoken: string[] = [];
-    for (let t = 6; t <= 40; t += 0.25) {
+    for (let t = 6; t <= 50; t += 0.25) {
       const s = e.evaluate(live(), t, t).speak;
       if (s) spoken.push(`${s.id}@${t}`);
     }
-    expect(spoken).toEqual(["praise@16", "praise@31"]);
+    expect(spoken).toEqual(["praise@16", "praise@46"]);
   });
 });

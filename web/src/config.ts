@@ -76,13 +76,13 @@ export const FORECAST = {
 
 export const COACH = {
   evalIntervalMs: 250,
-  globalGapS: 3,
-  ruleCooldownS: 8,
+  globalGapS: 6,
+  ruleCooldownS: 15,
   warmupS: 5,
   noCompressionS: 2,
   tooDeepCm: 6.5,
   praiseAfterS: 10,
-  praiseCooldownS: 15,
+  praiseCooldownS: 30,
   /** Let uncalibrated camera depth estimates drive "Push harder" / "A little less force". */
   useCameraDepth: true,
 } as const;
