@@ -8,7 +8,7 @@ HackOHI/O 2026 · Aaron Zheng, Jaeha Lee, Eason Zheng
 
 ## Demo video
 
-https://youtu.be/oubjYkOBK_0
+[![Watch the CPR Coach demo video](https://img.youtube.com/vi/oubjYkOBK_0/maxresdefault.jpg)](https://youtu.be/oubjYkOBK_0)
 
 ## The problem
 
